@@ -1,0 +1,10 @@
+[project]
+name = "blind-link"
+version = "0.1.0"
+
+[encrypted]
+circuit_dir = "encrypted-ixs"
+
+[cluster]
+offset = 456
+recovery_set_size = 4
