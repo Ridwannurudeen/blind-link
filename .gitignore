@@ -1,9 +1,11 @@
 node_modules/
 dist/
 build/
+artifacts/
 target/
 .anchor/
 .DS_Store
 *.log
 .env
 .env.*
+!.env.example

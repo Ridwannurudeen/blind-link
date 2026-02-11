@@ -59,7 +59,7 @@ export interface PsiResult {
 
 // ── Constants ───────────────────────────────────────────────────────────
 
-const MAX_CLIENT_CONTACTS = 512;
+const MAX_CLIENT_CONTACTS = 16;
 const REGISTRY_SEED = Buffer.from("blind_link_registry");
 const SESSION_SEED = Buffer.from("psi_session");
 
@@ -125,8 +125,10 @@ export class BlindLinkClient {
       .join("");
 
     return new Promise((resolve, reject) => {
+      // Worker path resolved by bundler (Vite/webpack 5) at build time.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const worker = new Worker(
-        new URL("../workers/hash-worker.ts", import.meta.url),
+        new URL("../workers/hash-worker.ts", typeof document !== "undefined" ? document.baseURI : "file://"),
         { type: "module" }
       );
 
@@ -288,14 +290,15 @@ export class BlindLinkClient {
       this.program.programId
     );
 
-    const session = await this.program.account.psiSession.fetch(sessionPda);
+    // Account type resolved from IDL after `anchor build` generates types
+    const session = await (this.program.account as any).psiSession.fetch(sessionPda);
 
     if (session.status !== 2) {
       throw new Error(`PSI computation failed with status: ${session.status}`);
     }
 
     // Decrypt the match results
-    // The result is MatchResult: matched[512] bools + match_count u64
+    // The result is MatchResult: matched[16] bools + match_count u64
     const decrypted = this.cipher.decrypt(
       session.resultCiphertext,
       session.resultNonce
@@ -439,12 +442,11 @@ export class BlindLinkClient {
 
   /** Event listener for PSI completion (set up before tx submission). */
   private awaitPsiEvent(): Promise<any> {
-    type Event = anchor.IdlEvents<(typeof this.program)["idl"]>;
     return new Promise((resolve) => {
       const listener = this.program.addEventListener(
-        "psiCompleteEvent" as keyof Event,
+        "psiCompleteEvent",
         (event: any) => {
-          this.program.removeEventListener(listener);
+          this.program.removeEventListener(listener as number);
           resolve(event);
         }
       );
@@ -463,10 +465,12 @@ async function getMXEPublicKeyWithRetry(
 ): Promise<Uint8Array> {
   for (let i = 0; i < maxRetries; i++) {
     try {
-      return await getMXEPublicKey(provider, programId);
+      const key = await getMXEPublicKey(provider, programId);
+      if (key) return key;
     } catch {
-      await new Promise((r) => setTimeout(r, interval));
+      // Retry on failure
     }
+    await new Promise((r) => setTimeout(r, interval));
   }
   throw new Error(
     "Failed to retrieve MXE public key after " + maxRetries + " attempts"
