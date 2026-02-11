@@ -49,7 +49,7 @@ Blind-Link implements **Delegated Private Set Intersection** — a cryptographic
 
 The PSI circuit (`encrypted-ixs/intersect_contacts.rs`) implements:
 
-- **Cuckoo-filter-inspired bucketing** — Contact hashes are mapped to 8 buckets via modular reduction, reducing per-contact comparisons from O(m) to O(m/8)
+- **Cuckoo-filter-inspired bucketing** — Contact hashes are mapped to 8 buckets via modular reduction for deterministic insertion. In MPC, all buckets are scanned with constant-time guards (secret indices prevent branching); ORAM integration would unlock O(m/8) per contact
 - **Constant-time execution** — Both match and non-match branches execute identically, preventing timing side-channels at the MPC level
 - **`Enc<Shared, u128>` contact hashes** — Salted SHA-256 truncated to 128 bits, fitting within the Curve25519 scalar field (< 2^252)
 - **`Enc<Mxe, GlobalRegistry>` state** — Registry persists as MXE-encrypted shared private state; no single Arx node can read it
@@ -57,8 +57,8 @@ The PSI circuit (`encrypted-ixs/intersect_contacts.rs`) implements:
 Three circuit instructions:
 | Instruction | Purpose | Complexity |
 |---|---|---|
-| `intersect_contacts` | PSI between client contacts and registry | O(n × b) |
-| `register_user` | Insert a user hash into the registry | O(b) |
+| `intersect_contacts` | PSI between client contacts and registry | O(n × NUM_BUCKETS × b) |
+| `register_user` | Insert a user hash into the registry | O(NUM_BUCKETS × b) |
 | `reveal_registry_size` | Public count of registered users | O(1) |
 
 ### 2. Solana Coordination Layer (Anchor 0.30+)
@@ -143,7 +143,7 @@ Step 1: Local Hash           Step 2: Arcium Compute        Step 3: Result Reveal
 
 ```bash
 # Clone and install
-git clone https://github.com/your-username/blind-link.git
+git clone https://github.com/Ridwannurudeen/blind-link.git
 cd blind-link
 npm install
 
@@ -213,7 +213,7 @@ Blind-Link demonstrates advanced use of Arcium's core primitives:
 
 - **Shared Private State (`Enc<Mxe, T>`):** The Global User Registry lives as MXE-encrypted state on Solana. It persists across computations but never exists in plaintext — not on-chain, not in memory, not in any single node.
 
-- **Optimized MPC Rounds:** Cuckoo-filter bucketing reduces the comparison space by 8×, directly cutting the number of expensive multiplication rounds in the MPC protocol.
+- **Constant-Time MPC Execution:** All bucket scans use constant-time target guards — MPC cannot branch on secret bucket indices. The bucketed layout is structurally compatible with future ORAM-backed oblivious access, which would yield an 8× reduction in comparison rounds.
 
 ### Impact
 

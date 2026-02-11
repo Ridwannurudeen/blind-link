@@ -3,10 +3,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-blind_link = "B1indL1nkPSIxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+blind_link = "B1indLnkPS1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 [programs.devnet]
-blind_link = "B1indL1nkPSIxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+blind_link = "B1indLnkPS1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 [registry]
 url = "https://api.apr.dev"
