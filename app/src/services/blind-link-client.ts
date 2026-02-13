@@ -14,7 +14,7 @@ import { x25519 } from "@noble/curves/ed25519";
 import { randomBytes } from "crypto";
 import * as anchor from "@coral-xyz/anchor";
 import {
-  getArciumEnv,
+  getArciumProgramId,
   getMXEPublicKey,
   getClusterAccAddress,
   getComputationAccAddress,
@@ -23,6 +23,8 @@ import {
   getExecutingPoolAccAddress,
   getCompDefAccAddress,
   getCompDefAccOffset,
+  getFeePoolAccAddress,
+  getClockAccAddress,
   awaitComputationFinalization,
   RescueCipher,
   deserializeLE,
@@ -33,6 +35,8 @@ import {
 export interface BlindLinkConfig {
   provider: anchor.AnchorProvider;
   program: anchor.Program;
+  /** Arcium cluster offset (from Arcium.toml) */
+  clusterOffset?: number;
   /** Maximum contacts per PSI batch (must match circuit constant) */
   maxContacts?: number;
 }
@@ -60,15 +64,17 @@ export interface PsiResult {
 // ── Constants ───────────────────────────────────────────────────────────
 
 const MAX_CLIENT_CONTACTS = 16;
+const ARCIUM_CLUSTER_OFFSET = 456;
 const REGISTRY_SEED = Buffer.from("blind_link_registry");
 const SESSION_SEED = Buffer.from("psi_session");
+const SIGN_PDA_SEED = Buffer.from("ArciumSignerAccount");
 
 // ── Client Service ──────────────────────────────────────────────────────
 
 export class BlindLinkClient {
   private provider: anchor.AnchorProvider;
   private program: anchor.Program;
-  private arciumEnv: ReturnType<typeof getArciumEnv>;
+  private arciumClusterOffset: number;
   private maxContacts: number;
 
   // Crypto state (refreshed per session)
@@ -81,7 +87,7 @@ export class BlindLinkClient {
   constructor(config: BlindLinkConfig) {
     this.provider = config.provider;
     this.program = config.program;
-    this.arciumEnv = getArciumEnv();
+    this.arciumClusterOffset = config.clusterOffset ?? ARCIUM_CLUSTER_OFFSET;
     this.maxContacts = config.maxContacts ?? MAX_CLIENT_CONTACTS;
   }
 
@@ -125,10 +131,9 @@ export class BlindLinkClient {
       .join("");
 
     return new Promise((resolve, reject) => {
-      // Worker path resolved by bundler (Vite/webpack 5) at build time.
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      // Vite resolves this at build time via the `new URL(..., import.meta.url)` pattern.
       const worker = new Worker(
-        new URL("../workers/hash-worker.ts", typeof document !== "undefined" ? document.baseURI : "file://"),
+        new URL("../workers/hash-worker.ts", import.meta.url),
         { type: "module" }
       );
 
@@ -146,9 +151,10 @@ export class BlindLinkClient {
         }
       };
 
-      worker.onerror = (error) => {
+      worker.onerror = (event) => {
         worker.terminate();
-        reject(new Error(`Hash worker failed: ${error.message}`));
+        const msg = event.message || event.error?.message || "Unknown worker error";
+        reject(new Error(`Hash worker failed: ${msg}`));
       };
 
       worker.postMessage({
@@ -218,6 +224,12 @@ export class BlindLinkClient {
     // Set up event listener BEFORE submitting (avoid race condition)
     const resultPromise = this.awaitPsiEvent();
 
+    // Derive shared addresses
+    const [signPda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [SIGN_PDA_SEED],
+      this.program.programId
+    );
+
     // Submit the PSI computation
     const txSignature = await this.program.methods
       .intersectContacts(
@@ -231,24 +243,29 @@ export class BlindLinkClient {
         user: this.provider.wallet.publicKey,
         psiSession: sessionPda,
         registryState: registryPda,
-        computationAccount: getComputationAccAddress(
-          this.arciumEnv.arciumClusterOffset,
-          computationOffset
-        ),
-        clusterAccount: getClusterAccAddress(
-          this.arciumEnv.arciumClusterOffset
-        ),
+        signPdaAccount: signPda,
         mxeAccount: getMXEAccAddress(this.program.programId),
         mempoolAccount: getMempoolAccAddress(
-          this.arciumEnv.arciumClusterOffset
+          this.arciumClusterOffset
         ),
         executingPool: getExecutingPoolAccAddress(
-          this.arciumEnv.arciumClusterOffset
+          this.arciumClusterOffset
+        ),
+        computationAccount: getComputationAccAddress(
+          this.arciumClusterOffset,
+          computationOffset
         ),
         compDefAccount: getCompDefAccAddress(
           this.program.programId,
           Buffer.from(getCompDefAccOffset("intersect_contacts")).readUInt32LE()
         ),
+        clusterAccount: getClusterAccAddress(
+          this.arciumClusterOffset
+        ),
+        poolAccount: getFeePoolAccAddress(),
+        clockAccount: getClockAccAddress(),
+        systemProgram: anchor.web3.SystemProgram.programId,
+        arciumProgram: getArciumProgramId(),
       })
       .rpc({ commitment: "confirmed" });
 
@@ -397,6 +414,11 @@ export class BlindLinkClient {
       this.program.programId
     );
 
+    const [signPda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [SIGN_PDA_SEED],
+      this.program.programId
+    );
+
     const txSignature = await this.program.methods
       .registerUser(
         computationOffset,
@@ -407,24 +429,29 @@ export class BlindLinkClient {
       .accountsPartial({
         user: this.provider.wallet.publicKey,
         registryState: registryPda,
-        computationAccount: getComputationAccAddress(
-          this.arciumEnv.arciumClusterOffset,
-          computationOffset
-        ),
-        clusterAccount: getClusterAccAddress(
-          this.arciumEnv.arciumClusterOffset
-        ),
+        signPdaAccount: signPda,
         mxeAccount: getMXEAccAddress(this.program.programId),
         mempoolAccount: getMempoolAccAddress(
-          this.arciumEnv.arciumClusterOffset
+          this.arciumClusterOffset
         ),
         executingPool: getExecutingPoolAccAddress(
-          this.arciumEnv.arciumClusterOffset
+          this.arciumClusterOffset
+        ),
+        computationAccount: getComputationAccAddress(
+          this.arciumClusterOffset,
+          computationOffset
         ),
         compDefAccount: getCompDefAccAddress(
           this.program.programId,
           Buffer.from(getCompDefAccOffset("register_user")).readUInt32LE()
         ),
+        clusterAccount: getClusterAccAddress(
+          this.arciumClusterOffset
+        ),
+        poolAccount: getFeePoolAccAddress(),
+        clockAccount: getClockAccAddress(),
+        systemProgram: anchor.web3.SystemProgram.programId,
+        arciumProgram: getArciumProgramId(),
       })
       .rpc({ commitment: "confirmed" });
 

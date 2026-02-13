@@ -2,28 +2,24 @@
 
 **Private contact discovery on Arcium. Find who you know without revealing who you know.**
 
-Blind-Link is a production-ready Private Set Intersection (PSI) application built on the Arcium Multiparty Execution Environment (MXE). It solves the #1 privacy barrier in Web3 social onboarding: apps that demand your entire address book just to find friends.
-
-```bash
-npx arcium init blind-link && cd blind-link && npm install
-```
+Blind-Link is a Private Set Intersection (PSI) application built on the [Arcium](https://arcium.com) Multiparty Execution Environment (MXE). It lets users discover mutual contacts without either party exposing their address book — solving the #1 privacy barrier in Web3 social onboarding.
 
 ---
 
 ## The Problem
 
-Every social app — Web2 or Web3 — asks the same question during onboarding: *"Can we access your contacts?"*
+Every social app asks the same question during onboarding: *"Can we access your contacts?"*
 
-Behind that innocent prompt, your entire address book (hundreds to thousands of contacts) gets uploaded to a central server in plaintext. The server learns your social graph regardless of whether your contacts are users. This is a surveillance architecture disguised as a feature.
+Behind that prompt, your entire address book gets uploaded to a central server in plaintext. The server learns your social graph regardless of whether your contacts are users.
 
-**Real-world consequences:**
-- Facebook's contact-upload system mapped the social graph of 1.5B non-consenting people
-- Contact data is the #1 vector for social engineering and SIM-swap attacks in crypto
-- 67% of privacy-conscious users abandon onboarding when asked for contacts (Signal Foundation, 2024)
+**Why this matters in crypto:**
+- Contact data is the primary vector for social engineering and SIM-swap attacks
+- Privacy-conscious users abandon onboarding when asked for contacts
+- Once uploaded, address books become permanent surveillance assets — even for non-users
 
-## The Arcium Solution
+## How It Works
 
-Blind-Link implements **Delegated Private Set Intersection** — a cryptographic protocol where your contacts are compared against a global user registry *without either party seeing the other's data*.
+Blind-Link implements **Delegated Private Set Intersection** — a cryptographic protocol where contacts are compared against a global user registry *without either party seeing the other's data*.
 
 ```
 ┌─────────────┐        Encrypted        ┌──────────────────┐
@@ -35,7 +31,7 @@ Blind-Link implements **Delegated Private Set Intersection** — a cryptographic
 └─────────────┘                          └──────────────────┘
          │                                       │
          │  SHA-256 + salt                       │  Cerberus MPC
-         │  in Web Worker                        │  N-1 dishonest
+         │  client-side                          │  N-1 dishonest
          ▼                                       ▼
    Never leaves device                   No node sees plaintext
 ```
@@ -45,51 +41,50 @@ Blind-Link implements **Delegated Private Set Intersection** — a cryptographic
 
 ## Architecture
 
-### 1. Arcis Circuit (MXE Logic)
+### 1. Arcis Circuit (`encrypted-ixs/src/lib.rs`)
 
-The PSI circuit (`encrypted-ixs/intersect_contacts.rs`) implements:
+The MXE circuit implements bucketed PSI with constant-time execution:
 
-- **Cuckoo-filter-inspired bucketing** — Contact hashes are mapped to 8 buckets via modular reduction for deterministic insertion. In MPC, all buckets are scanned with constant-time guards (secret indices prevent branching); ORAM integration would unlock O(m/8) per contact
-- **Constant-time execution** — Both match and non-match branches execute identically, preventing timing side-channels at the MPC level
-- **`Enc<Shared, u128>` contact hashes** — Salted SHA-256 truncated to 128 bits, fitting within the Curve25519 scalar field (< 2^252)
-- **`Enc<Mxe, GlobalRegistry>` state** — Registry persists as MXE-encrypted shared private state; no single Arx node can read it
+- **Bucketed fingerprint matching** — Contact hashes are mapped to `NUM_BUCKETS` (4) buckets via modular reduction. All buckets are scanned with constant-time guards since MPC cannot branch on secret bucket indices. ORAM integration would reduce per-contact comparisons by `NUM_BUCKETS`x
+- **Constant-time execution** — Match and non-match branches execute identically, preventing timing side-channels at the MPC level. The arcis compiler converts all conditionals to constant-time select operations
+- **`Enc<Shared, ClientContacts>`** — Salted SHA-256 truncated to u128, fitting within the Curve25519 scalar field
+- **`Enc<Mxe, GlobalRegistry>`** — Registry persists as MXE-encrypted shared private state; no single Arx node can read it
 
-Three circuit instructions:
 | Instruction | Purpose | Complexity |
 |---|---|---|
-| `intersect_contacts` | PSI between client contacts and registry | O(n × NUM_BUCKETS × b) |
-| `register_user` | Insert a user hash into the registry | O(NUM_BUCKETS × b) |
+| `intersect_contacts` | PSI between client contacts and registry | O(n × NUM_BUCKETS × BUCKET_SIZE) |
+| `register_user` | Insert a user hash into the registry | O(NUM_BUCKETS × BUCKET_SIZE) |
 | `reveal_registry_size` | Public count of registered users | O(1) |
 
-### 2. Solana Coordination Layer (Anchor 0.30+)
+### 2. Solana Program (`programs/blind_link/src/lib.rs`)
 
-The on-chain program (`programs/blind_link/src/lib.rs`) manages:
+Anchor program managing the MXE session lifecycle:
 
-- **MXE session lifecycle** — Init → Queue → Callback pattern per Arcium specification
-- **`PsiSession` account** — Per-user session tracking with encrypted result storage
-- **`RegistryState` PDA** — Global registry with MXE-encrypted bucket data
-- **Proof verification** — `SignedComputationOutputs<T>` verified against cluster account in each callback
+- **Init → Queue → Callback** — Standard Arcium computation pattern with `SignedComputationOutputs<T>` proof verification against the cluster account
+- **`PsiSession` PDA** — Per-user session tracking with encrypted result storage and status (pending → computing → completed/failed)
+- **`RegistryState` PDA** — Global registry holding MXE-encrypted bucket data, seeded with `b"blind_link_registry"`
+- **Events** — `PsiCompleteEvent`, `UserRegisteredEvent`, `RegistrySizeEvent` emitted on each callback for client indexing
 
-### 3. TypeScript Client (`app/src/`)
+### 3. React Frontend (`app/src/`)
 
 | Component | File | Role |
 |---|---|---|
-| Hash Worker | `workers/hash-worker.ts` | Web Worker running salted SHA-256 — zero UI jank |
-| Client Service | `services/blind-link-client.ts` | Full onboarding orchestration with `@arcium-hq/client` |
-| Onboarding UI | `components/BlindOnboarding.tsx` | 3-step visual flow (React) |
+| Register | `pages/Register.tsx` | User registration flow with wallet connection |
+| Discovery | `pages/Discovery.tsx` | Contact input and PSI result display |
+| Contact Input | `components/ContactInput.tsx` | Contact list entry with validation |
+| Program Hook | `hooks/useProgram.ts` | Anchor program initialization via `@arcium-hq/client` |
 
-**The "Blind Onboarding" Flow:**
+**Onboarding Flow:**
 
 ```
 Step 1: Local Hash           Step 2: Arcium Compute        Step 3: Result Reveal
 ┌─────────────────┐         ┌─────────────────────┐       ┌──────────────────┐
-│ Web Worker       │         │ x25519 key exchange │       │ Decrypt match    │
-│ SHA-256(salt ‖   │────────▶│ Rescue cipher enc   │──────▶│ flags locally    │
-│  contact)        │         │ MXE PSI execution   │       │ Show matched     │
-│ → u128 hashes    │         │ On-chain callback   │       │ contacts only    │
+│ SHA-256(salt ‖   │         │ x25519 key exchange │       │ Decrypt match    │
+│  contact)        │────────▶│ Rescue cipher enc   │──────▶│ flags locally    │
+│ → u128 hashes    │         │ MXE PSI execution   │       │ Show matched     │
+│                  │         │ On-chain callback   │       │ contacts only    │
 └─────────────────┘         └─────────────────────┘       └──────────────────┘
-     On-device                  Arcium network               Client-side
-     ~2s for 500               ~15s MPC rounds               Instant decrypt
+     Client-side                Arcium network               Client-side
 ```
 
 ## Security Model
@@ -125,27 +120,24 @@ Step 1: Local Hash           Step 2: Arcium Compute        Step 3: Result Reveal
 
 | Metric | Value | Notes |
 |---|---|---|
-| Client hashing | ~2s / 500 contacts | Web Worker, non-blocking |
-| MXE computation | ~15s | Depends on cluster size and network |
+| MXE computation | ~15s | Depends on cluster size and network latency |
 | On-chain tx cost | ~0.002 SOL | Queue + callback transactions |
-| Registry capacity | 4,096 users | Scales via sharding (roadmap) |
-| Max contacts/batch | 512 | Covers 99% of real-world address books |
+| Registry capacity | 64 users (4 × 16) | Scales via bucket/shard expansion |
+| Max contacts/query | 16 | `MAX_CLIENT_CONTACTS` constant in circuit |
 
 ## Quick Start
 
 ### Prerequisites
 
-- [Arcium CLI](https://docs.arcium.com/developers/hello-world) installed
-- Solana CLI configured (`solana config set --url devnet`)
-- Node.js 18+
+- [Arcium CLI](https://docs.arcium.com/developers/hello-world)
+- Solana CLI (`solana config set --url devnet`)
+- Node.js 18+, Rust
 
-### Build & Test
+### Build & Deploy
 
 ```bash
-# Clone and install
 git clone https://github.com/Ridwannurudeen/blind-link.git
-cd blind-link
-npm install
+cd blind-link && npm install
 
 # Build circuits + Anchor program
 arcium build
@@ -153,7 +145,7 @@ arcium build
 # Run tests on devnet
 arcium test --cluster devnet
 
-# Deploy
+# Deploy to devnet
 arcium deploy \
   --cluster-offset 456 \
   --recovery-set-size 4 \
@@ -161,78 +153,60 @@ arcium deploy \
   --rpc-url https://devnet.helius-rpc.com/?api-key=YOUR_KEY
 ```
 
-### Client Integration
+### Run the Frontend
 
-```typescript
-import { BlindLinkClient } from "./services/blind-link-client";
-
-const client = new BlindLinkClient({
-  provider: anchorProvider,
-  program: blindLinkProgram,
-});
-
-// Full onboarding in one call
-const result = await client.blindOnboard(
-  ["+1234567890", "alice@example.com", "bob@test.org"],
-  {
-    onHashProgress: (done, total) => console.log(`Hashing: ${done}/${total}`),
-    onComputeComplete: () => console.log("MXE computation done"),
-    onReveal: (matches) => console.log("Found:", matches),
-  }
-);
-// result.matchedContacts = ["alice@example.com"]
+```bash
+cd app && npm install && npm run dev
 ```
+
+Configure `app/.env` with your program ID and RPC endpoint (see `app/.env.example`).
 
 ## Project Structure
 
 ```
 blind-link/
-├── encrypted-ixs/                    # Arcis MXE circuits
-│   └── intersect_contacts.rs         # PSI + registry + reveal circuits
-├── programs/blind_link/src/          # Solana Anchor program
-│   └── lib.rs                        # Session lifecycle + proof verification
+├── encrypted-ixs/src/
+│   └── lib.rs                        # Arcis MXE circuit (PSI + register + reveal)
+├── programs/blind_link/src/
+│   └── lib.rs                        # Anchor program (session lifecycle + proof verification)
 ├── app/src/
-│   ├── workers/hash-worker.ts        # Web Worker: salted SHA-256
-│   ├── services/blind-link-client.ts # Client orchestration (@arcium-hq/client)
-│   └── components/BlindOnboarding.tsx# 3-step React UI
-├── tests/blind_link.ts               # Integration test suite
+│   ├── pages/                        # Landing, Register, Discovery pages
+│   ├── components/                   # ContactInput, Navbar, WalletButton
+│   ├── hooks/useProgram.ts           # Anchor provider + program init
+│   └── config.ts                     # Program ID + cluster config
+├── tests/
+│   └── blind_link.ts                 # Integration test suite (devnet)
 ├── Arcium.toml                       # Arcium project config
 ├── Anchor.toml                       # Anchor config
 └── package.json
 ```
 
-## RTG Grant Criteria
+## Arcium Primitives Used
 
-### Technical Implementation
+| Primitive | Usage |
+|---|---|
+| **`Enc<Shared, T>`** | Client contact hashes — encrypted with Rescue cipher, split into secret shares across Arx nodes |
+| **`Enc<Mxe, T>`** | Global Registry — persists as MXE-encrypted state on Solana, never exists in plaintext |
+| **Cerberus MPC** | Dishonest majority model — secure with N-1 malicious nodes (only 1 honest required) |
+| **`SignedComputationOutputs`** | Proof verification in each callback against the cluster account |
+| **Constant-time guards** | All bucket scans compiled to MPC selects — no secret-dependent branching |
 
-Blind-Link demonstrates advanced use of Arcium's core primitives:
+## Use Cases
 
-- **Secret Sharing:** Every contact hash is encrypted with the Rescue cipher and split into secret shares across the Arx cluster. The shares are MAC-authenticated (Cerberus protocol), ensuring computational integrity even under adversarial conditions.
+The Delegated PSI pattern generalizes beyond contact discovery:
 
-- **Dishonest Majority Model:** The PSI computation is secure as long as *at least one* Arx node in the cluster is honest. This is the strongest security guarantee available in MPC — an attacker must compromise *every single node* to learn anything about the contacts.
+- **Social onboarding** — Find friends without uploading your address book
+- **Dating apps** — Discover mutual interest without revealing unmatched preferences
+- **Professional networking** — Match skills to opportunities without public profiles
+- **Marketplace matching** — Connect buyers and sellers without exposing either party's full catalog
 
-- **Shared Private State (`Enc<Mxe, T>`):** The Global User Registry lives as MXE-encrypted state on Solana. It persists across computations but never exists in plaintext — not on-chain, not in memory, not in any single node.
+## Roadmap
 
-- **Constant-Time MPC Execution:** All bucket scans use constant-time target guards — MPC cannot branch on secret bucket indices. The bucketed layout is structurally compatible with future ORAM-backed oblivious access, which would yield an 8× reduction in comparison rounds.
-
-### Impact
-
-Contact discovery is the **#1 barrier** to privacy-conscious users joining Web3 social applications:
-
-- **67% abandonment rate** at the "upload contacts" step for privacy-aware users
-- **Zero-knowledge social graph:** Blind-Link proves that contact discovery can work with O(n) efficiency while keeping 100% of non-matching contacts invisible
-- **Portable pattern:** The Delegated PSI model applies to any matching problem — dating apps, professional networking, marketplace buyer-seller matching — without architectural changes
-
-### Innovation
-
-- First implementation of **bucketed PSI** on a decentralized MPC network
-- **Web Worker hashing pipeline** ensures the privacy UX is indistinguishable from a traditional (privacy-violating) implementation
-- **Constant-time MPC execution** prevents metadata leakage even at the protocol level
+- [ ] ORAM-backed oblivious access for `NUM_BUCKETS`x reduction in comparison rounds
+- [ ] Bucket/shard expansion for larger registries (10K+ users)
+- [ ] Batch registration for bulk onboarding
+- [ ] Mobile SDK (React Native)
 
 ## License
 
 MIT
-
----
-
-Built with [Arcium](https://arcium.com) — Confidential Computing for the Open Internet.

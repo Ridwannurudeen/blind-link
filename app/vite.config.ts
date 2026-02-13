@@ -6,17 +6,26 @@ export default defineConfig({
   plugins: [
     react(),
     nodePolyfills({
-      include: ["buffer", "crypto", "stream", "util", "process"],
-      globals: { Buffer: true, process: true },
+      globals: { Buffer: true, process: true, global: true },
+      overrides: {
+        fs: "memfs",
+      },
     }),
   ],
   server: { port: 3000 },
-  resolve: {
-    alias: {
-      crypto: "crypto-browserify",
-    },
-  },
   define: {
-    "process.env": {},
+    "process.version": JSON.stringify("v18.0.0"),
+    "process.browser": true,
+    "process.env": "{}",
+  },
+  worker: {
+    format: "es",
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      define: {
+        global: "globalThis",
+      },
+    },
   },
 });

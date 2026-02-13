@@ -1,8 +1,18 @@
 import React from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 
 export const WalletButton: React.FC = () => {
   const { publicKey, wallet, connect, disconnect, connecting } = useWallet();
+  const { setVisible } = useWalletModal();
+
+  const handleConnect = async () => {
+    if (!wallet) {
+      setVisible(true);
+      return;
+    }
+    await connect();
+  };
 
   if (publicKey) {
     const addr = publicKey.toBase58();
@@ -21,7 +31,7 @@ export const WalletButton: React.FC = () => {
   return (
     <button
       className="btn-primary btn-sm"
-      onClick={() => connect()}
+      onClick={handleConnect}
       disabled={connecting}
     >
       {connecting ? "Connecting..." : "Connect Wallet"}

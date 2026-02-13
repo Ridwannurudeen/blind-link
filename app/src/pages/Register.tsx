@@ -7,6 +7,18 @@ import { useProgram } from "../hooks/useProgram";
 
 type RegisterState = "idle" | "registering" | "success" | "error";
 
+function friendlyError(msg: string): string {
+  if (msg.includes("MXE public key"))
+    return "The Arcium MXE cluster is currently unavailable. The devnet network may be undergoing maintenance — please try again later.";
+  if (msg.includes("insufficient funds") || msg.includes("Insufficient"))
+    return "Insufficient SOL balance. Please airdrop devnet SOL to your wallet and try again.";
+  if (msg.includes("User rejected"))
+    return "Transaction was rejected in your wallet.";
+  if (msg.includes("Session initialization"))
+    return "Failed to establish a secure session with the MXE cluster. Please try again.";
+  return msg;
+}
+
 export const Register: React.FC = () => {
   const { connected } = useWallet();
   const wallet = useAnchorWallet();
@@ -20,10 +32,14 @@ export const Register: React.FC = () => {
 
   const client = useMemo(() => {
     if (!wallet || !program) return null;
-    const provider = new anchor.AnchorProvider(connection, wallet, {
-      commitment: "confirmed",
-    });
-    return new BlindLinkClient({ provider, program });
+    try {
+      const provider = new anchor.AnchorProvider(connection, wallet, {
+        commitment: "confirmed",
+      });
+      return new BlindLinkClient({ provider, program });
+    } catch {
+      return null;
+    }
   }, [wallet, program, connection]);
 
   const handleRegister = async () => {
@@ -38,7 +54,7 @@ export const Register: React.FC = () => {
       setState("success");
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      setError(msg);
+      setError(friendlyError(msg));
       setState("error");
     }
   };
@@ -96,6 +112,7 @@ export const Register: React.FC = () => {
             <p className="detail">
               Your identifier is being hashed, encrypted, and inserted into the
               global registry through secure multi-party computation.
+              This may take up to 30 seconds.
             </p>
           </div>
         )}
@@ -105,6 +122,7 @@ export const Register: React.FC = () => {
             <h3>Registered!</h3>
             <p>
               Your identifier has been securely added to the encrypted registry.
+              Other users can now discover you privately.
             </p>
             <p className="tx-link">
               Tx:{" "}
