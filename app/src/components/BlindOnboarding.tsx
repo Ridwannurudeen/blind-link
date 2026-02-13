@@ -221,7 +221,15 @@ export const BlindOnboarding: React.FC<BlindOnboardingProps> = ({
 
         {state.step === "error" && (
           <div className="error-state">
-            <p className="error-message">Something went wrong: {state.error}</p>
+            <p className="error-message">
+              {state.error?.includes("MXE public key")
+                ? "The Arcium MXE cluster is currently unavailable. The devnet network may be undergoing maintenance — please try again later."
+                : state.error?.includes("User rejected")
+                ? "Transaction was rejected in your wallet."
+                : state.error?.includes("insufficient")
+                ? "Insufficient SOL balance. Please airdrop devnet SOL to your wallet."
+                : state.error || "An unexpected error occurred."}
+            </p>
             <button className="btn-primary" onClick={startOnboarding}>
               Retry
             </button>

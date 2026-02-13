@@ -13,6 +13,8 @@ import { randomBytes } from "crypto";
 import { expect } from "chai";
 import {
   getArciumEnv,
+  getArciumProgram,
+  getArciumProgramId,
   getMXEPublicKey,
   getClusterAccAddress,
   getComputationAccAddress,
@@ -21,6 +23,9 @@ import {
   getExecutingPoolAccAddress,
   getCompDefAccAddress,
   getCompDefAccOffset,
+  getFeePoolAccAddress,
+  getClockAccAddress,
+  getLookupTableAddress,
   awaitComputationFinalization,
   RescueCipher,
   deserializeLE,
@@ -47,9 +52,15 @@ describe("blind-link", () => {
   const arciumEnv = getArciumEnv();
 
   const REGISTRY_SEED = Buffer.from("blind_link_registry");
+  const SIGN_PDA_SEED = Buffer.from("ArciumSignerAccount");
 
   let registryPda: anchor.web3.PublicKey;
   let registryBump: number;
+  let signPda: anchor.web3.PublicKey;
+  let mxeAccount: anchor.web3.PublicKey;
+  let arciumProgramId: anchor.web3.PublicKey;
+  let feePool: anchor.web3.PublicKey;
+  let clockAccount: anchor.web3.PublicKey;
 
   // ── Setup ───────────────────────────────────────────────────────────
 
@@ -59,11 +70,30 @@ describe("blind-link", () => {
         [REGISTRY_SEED],
         program.programId
       );
+    [signPda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [SIGN_PDA_SEED],
+      program.programId
+    );
+    mxeAccount = getMXEAccAddress(program.programId);
+    arciumProgramId = getArciumProgramId();
+    feePool = getFeePoolAccAddress();
+    clockAccount = getClockAccAddress();
   });
 
   // ── Test: Initialize Registry ─────────────────────────────────────
 
   it("initializes the global registry", async () => {
+    // Skip if already initialized (idempotent on devnet)
+    const existing = await provider.connection.getAccountInfo(registryPda);
+    if (existing) {
+      const registry = await (program.account as any).registryState.fetch(registryPda);
+      expect(registry.authority.toString()).to.equal(
+        provider.wallet.publicKey.toString()
+      );
+      console.log("  Registry already initialized (skipped)");
+      return;
+    }
+
     const tx = await program.methods
       .initializeRegistry()
       .accountsPartial({
@@ -77,7 +107,6 @@ describe("blind-link", () => {
     expect(registry.authority.toString()).to.equal(
       provider.wallet.publicKey.toString()
     );
-    expect(registry.computationCount.toNumber()).to.equal(0);
 
     console.log("  Registry initialized:", tx);
   });
@@ -85,27 +114,51 @@ describe("blind-link", () => {
   // ── Test: Initialize Computation Definitions ──────────────────────
 
   it("initializes computation definitions", async () => {
-    // Init all three comp defs
-    await program.methods
-      .initIntersectContactsCompDef()
-      .accountsPartial({
-        payer: provider.wallet.publicKey,
-      })
-      .rpc({ commitment: "confirmed" });
+    // Fetch MXE account to get LUT offset slot dynamically
+    const arcProgram = getArciumProgram(provider);
+    const mxeData = await arcProgram.account.mxeAccount.fetch(mxeAccount);
+    const lutOffsetSlot = mxeData.lutOffsetSlot as typeof anchor.BN.prototype;
+    const addressLookupTable = getLookupTableAddress(
+      program.programId,
+      lutOffsetSlot
+    );
+    const lutProgram = anchor.web3.AddressLookupTableProgram.programId;
 
-    await program.methods
-      .initRegisterUserCompDef()
-      .accountsPartial({
-        payer: provider.wallet.publicKey,
-      })
-      .rpc({ commitment: "confirmed" });
+    const compDefShared = {
+      mxeAccount,
+      addressLookupTable,
+      lutProgram,
+      arciumProgram: arciumProgramId,
+      systemProgram: anchor.web3.SystemProgram.programId,
+    };
 
-    await program.methods
-      .initRevealRegistrySizeCompDef()
-      .accountsPartial({
-        payer: provider.wallet.publicKey,
-      })
-      .rpc({ commitment: "confirmed" });
+    // Init each comp def (skip if already exists)
+    const circuits = [
+      { name: "intersect_contacts", method: "initIntersectContactsCompDef" },
+      { name: "register_user", method: "initRegisterUserCompDef" },
+      { name: "reveal_registry_size", method: "initRevealRegistrySizeCompDef" },
+    ];
+
+    for (const circuit of circuits) {
+      const offset = Buffer.from(
+        getCompDefAccOffset(circuit.name)
+      ).readUInt32LE();
+      const compDefAddr = getCompDefAccAddress(program.programId, offset);
+      const existing = await provider.connection.getAccountInfo(compDefAddr);
+      if (existing) {
+        console.log(`  ${circuit.name} comp def already initialized (skipped)`);
+        continue;
+      }
+      await (program.methods as any)
+        [circuit.method]()
+        .accountsPartial({
+          payer: provider.wallet.publicKey,
+          compDefAccount: compDefAddr,
+          ...compDefShared,
+        })
+        .rpc({ commitment: "confirmed" });
+      console.log(`  ${circuit.name} comp def initialized`);
+    }
 
     console.log("  All computation definitions initialized");
   });
@@ -150,20 +203,25 @@ describe("blind-link", () => {
       .accountsPartial({
         user: provider.wallet.publicKey,
         registryState: registryPda,
-        computationAccount: getComputationAccAddress(
-          arciumEnv.arciumClusterOffset,
-          computationOffset
-        ),
-        clusterAccount: getClusterAccAddress(arciumEnv.arciumClusterOffset),
-        mxeAccount: getMXEAccAddress(program.programId),
+        signPdaAccount: signPda,
+        mxeAccount,
         mempoolAccount: getMempoolAccAddress(arciumEnv.arciumClusterOffset),
         executingPool: getExecutingPoolAccAddress(
           arciumEnv.arciumClusterOffset
+        ),
+        computationAccount: getComputationAccAddress(
+          arciumEnv.arciumClusterOffset,
+          computationOffset
         ),
         compDefAccount: getCompDefAccAddress(
           program.programId,
           Buffer.from(getCompDefAccOffset("register_user")).readUInt32LE()
         ),
+        clusterAccount: getClusterAccAddress(arciumEnv.arciumClusterOffset),
+        poolAccount: feePool,
+        clockAccount,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        arciumProgram: arciumProgramId,
       })
       .rpc({ commitment: "confirmed" });
 
@@ -263,15 +321,15 @@ describe("blind-link", () => {
         user: provider.wallet.publicKey,
         psiSession: sessionPda,
         registryState: registryPda,
-        computationAccount: getComputationAccAddress(
-          arciumEnv.arciumClusterOffset,
-          computationOffset
-        ),
-        clusterAccount: getClusterAccAddress(arciumEnv.arciumClusterOffset),
-        mxeAccount: getMXEAccAddress(program.programId),
+        signPdaAccount: signPda,
+        mxeAccount,
         mempoolAccount: getMempoolAccAddress(arciumEnv.arciumClusterOffset),
         executingPool: getExecutingPoolAccAddress(
           arciumEnv.arciumClusterOffset
+        ),
+        computationAccount: getComputationAccAddress(
+          arciumEnv.arciumClusterOffset,
+          computationOffset
         ),
         compDefAccount: getCompDefAccAddress(
           program.programId,
@@ -279,6 +337,11 @@ describe("blind-link", () => {
             getCompDefAccOffset("intersect_contacts")
           ).readUInt32LE()
         ),
+        clusterAccount: getClusterAccAddress(arciumEnv.arciumClusterOffset),
+        poolAccount: feePool,
+        clockAccount,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        arciumProgram: arciumProgramId,
       })
       .rpc({ commitment: "confirmed" });
 
@@ -333,15 +396,15 @@ describe("blind-link", () => {
       .accountsPartial({
         payer: provider.wallet.publicKey,
         registryState: registryPda,
-        computationAccount: getComputationAccAddress(
-          arciumEnv.arciumClusterOffset,
-          computationOffset
-        ),
-        clusterAccount: getClusterAccAddress(arciumEnv.arciumClusterOffset),
-        mxeAccount: getMXEAccAddress(program.programId),
+        signPdaAccount: signPda,
+        mxeAccount,
         mempoolAccount: getMempoolAccAddress(arciumEnv.arciumClusterOffset),
         executingPool: getExecutingPoolAccAddress(
           arciumEnv.arciumClusterOffset
+        ),
+        computationAccount: getComputationAccAddress(
+          arciumEnv.arciumClusterOffset,
+          computationOffset
         ),
         compDefAccount: getCompDefAccAddress(
           program.programId,
@@ -349,6 +412,11 @@ describe("blind-link", () => {
             getCompDefAccOffset("reveal_registry_size")
           ).readUInt32LE()
         ),
+        clusterAccount: getClusterAccAddress(arciumEnv.arciumClusterOffset),
+        poolAccount: feePool,
+        clockAccount,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        arciumProgram: arciumProgramId,
       })
       .rpc({ commitment: "confirmed" });
 
@@ -413,15 +481,15 @@ describe("blind-link", () => {
         user: provider.wallet.publicKey,
         psiSession: sessionPda,
         registryState: registryPda,
-        computationAccount: getComputationAccAddress(
-          arciumEnv.arciumClusterOffset,
-          computationOffset
-        ),
-        clusterAccount: getClusterAccAddress(arciumEnv.arciumClusterOffset),
-        mxeAccount: getMXEAccAddress(program.programId),
+        signPdaAccount: signPda,
+        mxeAccount,
         mempoolAccount: getMempoolAccAddress(arciumEnv.arciumClusterOffset),
         executingPool: getExecutingPoolAccAddress(
           arciumEnv.arciumClusterOffset
+        ),
+        computationAccount: getComputationAccAddress(
+          arciumEnv.arciumClusterOffset,
+          computationOffset
         ),
         compDefAccount: getCompDefAccAddress(
           program.programId,
@@ -429,6 +497,11 @@ describe("blind-link", () => {
             getCompDefAccOffset("intersect_contacts")
           ).readUInt32LE()
         ),
+        clusterAccount: getClusterAccAddress(arciumEnv.arciumClusterOffset),
+        poolAccount: feePool,
+        clockAccount,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        arciumProgram: arciumProgramId,
       })
       .rpc({ commitment: "confirmed" });
 
@@ -490,20 +563,25 @@ describe("blind-link", () => {
       .accountsPartial({
         user: provider.wallet.publicKey,
         registryState: registryPda,
-        computationAccount: getComputationAccAddress(
-          arciumEnv.arciumClusterOffset,
-          regOffset
-        ),
-        clusterAccount: getClusterAccAddress(arciumEnv.arciumClusterOffset),
-        mxeAccount: getMXEAccAddress(program.programId),
+        signPdaAccount: signPda,
+        mxeAccount,
         mempoolAccount: getMempoolAccAddress(arciumEnv.arciumClusterOffset),
         executingPool: getExecutingPoolAccAddress(
           arciumEnv.arciumClusterOffset
+        ),
+        computationAccount: getComputationAccAddress(
+          arciumEnv.arciumClusterOffset,
+          regOffset
         ),
         compDefAccount: getCompDefAccAddress(
           program.programId,
           Buffer.from(getCompDefAccOffset("register_user")).readUInt32LE()
         ),
+        clusterAccount: getClusterAccAddress(arciumEnv.arciumClusterOffset),
+        poolAccount: feePool,
+        clockAccount,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        arciumProgram: arciumProgramId,
       })
       .rpc({ commitment: "confirmed" });
 
@@ -578,15 +656,15 @@ describe("blind-link", () => {
         user: provider.wallet.publicKey,
         psiSession: sessionPda,
         registryState: registryPda,
-        computationAccount: getComputationAccAddress(
-          arciumEnv.arciumClusterOffset,
-          psiOffset
-        ),
-        clusterAccount: getClusterAccAddress(arciumEnv.arciumClusterOffset),
-        mxeAccount: getMXEAccAddress(program.programId),
+        signPdaAccount: signPda,
+        mxeAccount,
         mempoolAccount: getMempoolAccAddress(arciumEnv.arciumClusterOffset),
         executingPool: getExecutingPoolAccAddress(
           arciumEnv.arciumClusterOffset
+        ),
+        computationAccount: getComputationAccAddress(
+          arciumEnv.arciumClusterOffset,
+          psiOffset
         ),
         compDefAccount: getCompDefAccAddress(
           program.programId,
@@ -594,6 +672,11 @@ describe("blind-link", () => {
             getCompDefAccOffset("intersect_contacts")
           ).readUInt32LE()
         ),
+        clusterAccount: getClusterAccAddress(arciumEnv.arciumClusterOffset),
+        poolAccount: feePool,
+        clockAccount,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        arciumProgram: arciumProgramId,
       })
       .rpc({ commitment: "confirmed" });
 

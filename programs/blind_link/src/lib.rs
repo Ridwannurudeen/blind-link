@@ -11,7 +11,7 @@ use arcium_anchor::comp_def_offset;
 use arcium_anchor::prelude::*;
 use arcium_client::idl::arcium::types::CallbackAccount;
 
-declare_id!("B1indLnkPS1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+declare_id!("9TVgatCVVvFtmEkHD1VqC1hW6Ddy3TaWN1vqhdqgZYq5");
 
 // ── State Accounts ──────────────────────────────────────────────────────
 
@@ -377,7 +377,7 @@ pub struct InitializeRegistry<'info> {
     #[account(
         init,
         payer = authority,
-        space = 8 + 1 + 4 + 16 + 32 + 8 + 10240,
+        space = 10240,
         seeds = [REGISTRY_SEED],
         bump
     )]
@@ -477,7 +477,7 @@ pub struct IntersectContacts<'info> {
     )]
     pub sign_pda_account: Account<'info, ArciumSignerAccount>,
     #[account(address = derive_mxe_pda!())]
-    pub mxe_account: Account<'info, MXEAccount>,
+    pub mxe_account: Box<Account<'info, MXEAccount>>,
     #[account(mut, address = derive_mempool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
     /// CHECK: mempool_account, checked by arcium program.
     pub mempool_account: UncheckedAccount<'info>,
@@ -517,7 +517,7 @@ pub struct RegisterUser<'info> {
     )]
     pub sign_pda_account: Account<'info, ArciumSignerAccount>,
     #[account(address = derive_mxe_pda!())]
-    pub mxe_account: Account<'info, MXEAccount>,
+    pub mxe_account: Box<Account<'info, MXEAccount>>,
     #[account(mut, address = derive_mempool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
     /// CHECK: mempool_account, checked by arcium program.
     pub mempool_account: UncheckedAccount<'info>,
@@ -557,7 +557,7 @@ pub struct RevealRegistrySize<'info> {
     )]
     pub sign_pda_account: Account<'info, ArciumSignerAccount>,
     #[account(address = derive_mxe_pda!())]
-    pub mxe_account: Account<'info, MXEAccount>,
+    pub mxe_account: Box<Account<'info, MXEAccount>>,
     #[account(mut, address = derive_mempool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
     /// CHECK: mempool_account, checked by arcium program.
     pub mempool_account: UncheckedAccount<'info>,
@@ -588,7 +588,7 @@ pub struct IntersectContactsCallback<'info> {
     #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_INTERSECT_CONTACTS))]
     pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
     #[account(address = derive_mxe_pda!())]
-    pub mxe_account: Account<'info, MXEAccount>,
+    pub mxe_account: Box<Account<'info, MXEAccount>>,
     pub computation_account: UncheckedAccount<'info>,
     #[account(address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
     pub cluster_account: Account<'info, Cluster>,
@@ -605,7 +605,7 @@ pub struct RegisterUserCallback<'info> {
     #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_REGISTER_USER))]
     pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
     #[account(address = derive_mxe_pda!())]
-    pub mxe_account: Account<'info, MXEAccount>,
+    pub mxe_account: Box<Account<'info, MXEAccount>>,
     pub computation_account: UncheckedAccount<'info>,
     #[account(address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
     pub cluster_account: Account<'info, Cluster>,
@@ -622,7 +622,7 @@ pub struct RevealRegistrySizeCallback<'info> {
     #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_REVEAL_REGISTRY_SIZE))]
     pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
     #[account(address = derive_mxe_pda!())]
-    pub mxe_account: Account<'info, MXEAccount>,
+    pub mxe_account: Box<Account<'info, MXEAccount>>,
     pub computation_account: UncheckedAccount<'info>,
     #[account(address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
     pub cluster_account: Account<'info, Cluster>,

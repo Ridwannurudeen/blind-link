@@ -1,72 +1,81 @@
 {
-  "version": "0.1.0",
-  "name": "blind_link",
+  "address": "9TVgatCVVvFtmEkHD1VqC1hW6Ddy3TaWN1vqhdqgZYq5",
+  "metadata": {
+    "name": "blind_link",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
   "instructions": [
     {
       "name": "initializeRegistry",
+      "discriminator": [189, 181, 20, 17, 174, 57, 249, 59],
       "accounts": [
-        { "name": "registryState", "isMut": true, "isSigner": false },
-        { "name": "authority", "isMut": true, "isSigner": true },
-        { "name": "systemProgram", "isMut": false, "isSigner": false }
+        { "name": "registryState", "writable": true, "signer": false },
+        { "name": "authority", "writable": true, "signer": true },
+        { "name": "systemProgram" }
       ],
       "args": []
     },
     {
       "name": "initIntersectContactsCompDef",
+      "discriminator": [150, 196, 185, 148, 249, 202, 122, 126],
       "accounts": [
-        { "name": "payer", "isMut": true, "isSigner": true },
-        { "name": "mxeAccount", "isMut": true, "isSigner": false },
-        { "name": "compDefAccount", "isMut": true, "isSigner": false },
-        { "name": "addressLookupTable", "isMut": true, "isSigner": false },
-        { "name": "lutProgram", "isMut": false, "isSigner": false },
-        { "name": "arciumProgram", "isMut": false, "isSigner": false },
-        { "name": "systemProgram", "isMut": false, "isSigner": false }
+        { "name": "payer", "writable": true, "signer": true },
+        { "name": "mxeAccount", "writable": true },
+        { "name": "compDefAccount", "writable": true },
+        { "name": "addressLookupTable", "writable": true },
+        { "name": "lutProgram" },
+        { "name": "arciumProgram" },
+        { "name": "systemProgram" }
       ],
       "args": []
     },
     {
       "name": "initRegisterUserCompDef",
+      "discriminator": [180, 234, 199, 19, 48, 170, 18, 187],
       "accounts": [
-        { "name": "payer", "isMut": true, "isSigner": true },
-        { "name": "mxeAccount", "isMut": true, "isSigner": false },
-        { "name": "compDefAccount", "isMut": true, "isSigner": false },
-        { "name": "addressLookupTable", "isMut": true, "isSigner": false },
-        { "name": "lutProgram", "isMut": false, "isSigner": false },
-        { "name": "arciumProgram", "isMut": false, "isSigner": false },
-        { "name": "systemProgram", "isMut": false, "isSigner": false }
+        { "name": "payer", "writable": true, "signer": true },
+        { "name": "mxeAccount", "writable": true },
+        { "name": "compDefAccount", "writable": true },
+        { "name": "addressLookupTable", "writable": true },
+        { "name": "lutProgram" },
+        { "name": "arciumProgram" },
+        { "name": "systemProgram" }
       ],
       "args": []
     },
     {
       "name": "initRevealRegistrySizeCompDef",
+      "discriminator": [46, 174, 240, 73, 88, 241, 39, 109],
       "accounts": [
-        { "name": "payer", "isMut": true, "isSigner": true },
-        { "name": "mxeAccount", "isMut": true, "isSigner": false },
-        { "name": "compDefAccount", "isMut": true, "isSigner": false },
-        { "name": "addressLookupTable", "isMut": true, "isSigner": false },
-        { "name": "lutProgram", "isMut": false, "isSigner": false },
-        { "name": "arciumProgram", "isMut": false, "isSigner": false },
-        { "name": "systemProgram", "isMut": false, "isSigner": false }
+        { "name": "payer", "writable": true, "signer": true },
+        { "name": "mxeAccount", "writable": true },
+        { "name": "compDefAccount", "writable": true },
+        { "name": "addressLookupTable", "writable": true },
+        { "name": "lutProgram" },
+        { "name": "arciumProgram" },
+        { "name": "systemProgram" }
       ],
       "args": []
     },
     {
       "name": "intersectContacts",
+      "discriminator": [89, 166, 123, 168, 44, 234, 224, 41],
       "accounts": [
-        { "name": "user", "isMut": true, "isSigner": true },
-        { "name": "psiSession", "isMut": true, "isSigner": false },
-        { "name": "registryState", "isMut": true, "isSigner": false },
-        { "name": "signPdaAccount", "isMut": true, "isSigner": false },
-        { "name": "mxeAccount", "isMut": false, "isSigner": false },
-        { "name": "mempoolAccount", "isMut": true, "isSigner": false },
-        { "name": "executingPool", "isMut": true, "isSigner": false },
-        { "name": "computationAccount", "isMut": true, "isSigner": false },
-        { "name": "compDefAccount", "isMut": false, "isSigner": false },
-        { "name": "clusterAccount", "isMut": true, "isSigner": false },
-        { "name": "poolAccount", "isMut": true, "isSigner": false },
-        { "name": "clockAccount", "isMut": true, "isSigner": false },
-        { "name": "systemProgram", "isMut": false, "isSigner": false },
-        { "name": "arciumProgram", "isMut": false, "isSigner": false }
+        { "name": "user", "writable": true, "signer": true },
+        { "name": "psiSession", "writable": true },
+        { "name": "registryState", "writable": true },
+        { "name": "signPdaAccount", "writable": true },
+        { "name": "mxeAccount" },
+        { "name": "mempoolAccount", "writable": true },
+        { "name": "executingPool", "writable": true },
+        { "name": "computationAccount", "writable": true },
+        { "name": "compDefAccount" },
+        { "name": "clusterAccount", "writable": true },
+        { "name": "poolAccount", "writable": true },
+        { "name": "clockAccount", "writable": true },
+        { "name": "systemProgram" },
+        { "name": "arciumProgram" }
       ],
       "args": [
         { "name": "computationOffset", "type": "u64" },
@@ -78,20 +87,21 @@
     },
     {
       "name": "registerUser",
+      "discriminator": [2, 241, 150, 223, 99, 214, 116, 97],
       "accounts": [
-        { "name": "user", "isMut": true, "isSigner": true },
-        { "name": "registryState", "isMut": true, "isSigner": false },
-        { "name": "signPdaAccount", "isMut": true, "isSigner": false },
-        { "name": "mxeAccount", "isMut": false, "isSigner": false },
-        { "name": "mempoolAccount", "isMut": true, "isSigner": false },
-        { "name": "executingPool", "isMut": true, "isSigner": false },
-        { "name": "computationAccount", "isMut": true, "isSigner": false },
-        { "name": "compDefAccount", "isMut": false, "isSigner": false },
-        { "name": "clusterAccount", "isMut": true, "isSigner": false },
-        { "name": "poolAccount", "isMut": true, "isSigner": false },
-        { "name": "clockAccount", "isMut": true, "isSigner": false },
-        { "name": "systemProgram", "isMut": false, "isSigner": false },
-        { "name": "arciumProgram", "isMut": false, "isSigner": false }
+        { "name": "user", "writable": true, "signer": true },
+        { "name": "registryState", "writable": true },
+        { "name": "signPdaAccount", "writable": true },
+        { "name": "mxeAccount" },
+        { "name": "mempoolAccount", "writable": true },
+        { "name": "executingPool", "writable": true },
+        { "name": "computationAccount", "writable": true },
+        { "name": "compDefAccount" },
+        { "name": "clusterAccount", "writable": true },
+        { "name": "poolAccount", "writable": true },
+        { "name": "clockAccount", "writable": true },
+        { "name": "systemProgram" },
+        { "name": "arciumProgram" }
       ],
       "args": [
         { "name": "computationOffset", "type": "u64" },
@@ -102,20 +112,21 @@
     },
     {
       "name": "revealRegistrySize",
+      "discriminator": [71, 148, 194, 85, 145, 198, 114, 134],
       "accounts": [
-        { "name": "payer", "isMut": true, "isSigner": true },
-        { "name": "registryState", "isMut": false, "isSigner": false },
-        { "name": "signPdaAccount", "isMut": true, "isSigner": false },
-        { "name": "mxeAccount", "isMut": false, "isSigner": false },
-        { "name": "mempoolAccount", "isMut": true, "isSigner": false },
-        { "name": "executingPool", "isMut": true, "isSigner": false },
-        { "name": "computationAccount", "isMut": true, "isSigner": false },
-        { "name": "compDefAccount", "isMut": false, "isSigner": false },
-        { "name": "clusterAccount", "isMut": true, "isSigner": false },
-        { "name": "poolAccount", "isMut": true, "isSigner": false },
-        { "name": "clockAccount", "isMut": true, "isSigner": false },
-        { "name": "systemProgram", "isMut": false, "isSigner": false },
-        { "name": "arciumProgram", "isMut": false, "isSigner": false }
+        { "name": "payer", "writable": true, "signer": true },
+        { "name": "registryState" },
+        { "name": "signPdaAccount", "writable": true },
+        { "name": "mxeAccount" },
+        { "name": "mempoolAccount", "writable": true },
+        { "name": "executingPool", "writable": true },
+        { "name": "computationAccount", "writable": true },
+        { "name": "compDefAccount" },
+        { "name": "clusterAccount", "writable": true },
+        { "name": "poolAccount", "writable": true },
+        { "name": "clockAccount", "writable": true },
+        { "name": "systemProgram" },
+        { "name": "arciumProgram" }
       ],
       "args": [
         { "name": "computationOffset", "type": "u64" }
@@ -125,13 +136,44 @@
   "accounts": [
     {
       "name": "RegistryState",
+      "discriminator": [29, 34, 224, 195, 175, 183, 99, 97]
+    },
+    {
+      "name": "PsiSession",
+      "discriminator": [71, 200, 15, 146, 51, 222, 140, 8]
+    }
+  ],
+  "events": [
+    {
+      "name": "PsiCompleteEvent",
+      "discriminator": []
+    },
+    {
+      "name": "UserRegisteredEvent",
+      "discriminator": []
+    },
+    {
+      "name": "RegistrySizeEvent",
+      "discriminator": []
+    }
+  ],
+  "errors": [
+    { "code": 6000, "name": "VerificationFailed", "msg": "MXE computation output verification failed" },
+    { "code": 6001, "name": "RegistryFull", "msg": "Registry is at maximum capacity" },
+    { "code": 6002, "name": "SessionAlreadyComplete", "msg": "Session has already been completed" },
+    { "code": 6003, "name": "Unauthorized", "msg": "Unauthorized: only the session owner can retrieve results" },
+    { "code": 6004, "name": "ClusterNotSet", "msg": "Arcium cluster not configured on MXE account" }
+  ],
+  "types": [
+    {
+      "name": "RegistryState",
       "type": {
         "kind": "struct",
         "fields": [
           { "name": "bump", "type": "u8" },
           { "name": "encryptedData", "type": "bytes" },
           { "name": "nonce", "type": "u128" },
-          { "name": "authority", "type": "publicKey" },
+          { "name": "authority", "type": "pubkey" },
           { "name": "computationCount", "type": "u64" }
         ]
       }
@@ -142,7 +184,7 @@
         "kind": "struct",
         "fields": [
           { "name": "bump", "type": "u8" },
-          { "name": "user", "type": "publicKey" },
+          { "name": "user", "type": "pubkey" },
           { "name": "computationOffset", "type": "u64" },
           { "name": "resultCiphertext", "type": "bytes" },
           { "name": "resultNonce", "type": { "array": ["u8", 16] } },
@@ -150,40 +192,37 @@
           { "name": "createdAt", "type": "i64" }
         ]
       }
-    }
-  ],
-  "events": [
+    },
     {
       "name": "PsiCompleteEvent",
-      "fields": [
-        { "name": "user", "type": "publicKey", "index": false },
-        { "name": "computationOffset", "type": "u64", "index": false },
-        { "name": "resultCiphertexts", "type": { "vec": { "array": ["u8", 32] } }, "index": false },
-        { "name": "resultNonce", "type": { "array": ["u8", 16] }, "index": false }
-      ]
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "user", "type": "pubkey" },
+          { "name": "computationOffset", "type": "u64" },
+          { "name": "resultCiphertexts", "type": { "vec": { "array": ["u8", 32] } } },
+          { "name": "resultNonce", "type": { "array": ["u8", 16] } }
+        ]
+      }
     },
     {
       "name": "UserRegisteredEvent",
-      "fields": [
-        { "name": "registry", "type": "publicKey", "index": false },
-        { "name": "newTotal", "type": "u64", "index": false }
-      ]
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "registry", "type": "pubkey" },
+          { "name": "newTotal", "type": "u64" }
+        ]
+      }
     },
     {
       "name": "RegistrySizeEvent",
-      "fields": [
-        { "name": "totalUsers", "type": "u64", "index": false }
-      ]
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "totalUsers", "type": "u64" }
+        ]
+      }
     }
-  ],
-  "errors": [
-    { "code": 6000, "name": "VerificationFailed", "msg": "MXE computation output verification failed" },
-    { "code": 6001, "name": "RegistryFull", "msg": "Registry is at maximum capacity" },
-    { "code": 6002, "name": "SessionAlreadyComplete", "msg": "Session has already been completed" },
-    { "code": 6003, "name": "Unauthorized", "msg": "Unauthorized: only the session owner can retrieve results" },
-    { "code": 6004, "name": "ClusterNotSet", "msg": "Arcium cluster not configured on MXE account" }
-  ],
-  "metadata": {
-    "address": "B1indLnkPS1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-  }
+  ]
 }
