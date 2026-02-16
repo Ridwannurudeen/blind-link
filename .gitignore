@@ -1,11 +1,9 @@
-node_modules/
-dist/
-build/
-artifacts/
-target/
-.anchor/
-.DS_Store
+# Blog/article artifacts (keep locally, don't commit)
+*.pdf
+*.html
+
+# Logs
 *.log
-.env
-.env.*
-!.env.example
+
+# Temporary files
+nul
