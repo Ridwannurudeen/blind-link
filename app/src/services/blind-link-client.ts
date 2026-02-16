@@ -115,17 +115,15 @@ export class BlindLinkClient {
 
   /**
    * Hash contacts in a Web Worker to avoid blocking the UI.
-   * Returns hex-encoded u128 hashes and the salt used.
+   * Returns hex-encoded u128 hashes.
+   *
+   * CRITICAL: Hashing is deterministic (no per-session salt) to enable
+   * matching. Privacy is enforced by Arcium MPC encryption.
    */
   async hashContacts(
     contacts: string[],
     callbacks?: Pick<OnboardingCallbacks, "onHashProgress" | "onHashComplete">
-  ): Promise<{ hashes: string[]; salt: string }> {
-    // Generate a per-session salt (32 bytes, hex-encoded)
-    const salt = Array.from(randomBytes(32))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-
+  ): Promise<{ hashes: string[] }> {
     const batchId = Array.from(randomBytes(8))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
@@ -147,7 +145,7 @@ export class BlindLinkClient {
         if (event.data.type === "hash_result") {
           callbacks?.onHashComplete?.(event.data.count);
           worker.terminate();
-          resolve({ hashes: event.data.hashes, salt });
+          resolve({ hashes: event.data.hashes });
         }
       };
 
@@ -160,7 +158,6 @@ export class BlindLinkClient {
       worker.postMessage({
         type: "hash",
         contacts,
-        salt,
         batchId,
       });
     });
@@ -220,9 +217,6 @@ export class BlindLinkClient {
       ],
       this.program.programId
     );
-
-    // Set up event listener BEFORE submitting (avoid race condition)
-    const resultPromise = this.awaitPsiEvent();
 
     // Derive shared addresses
     const [signPda] = anchor.web3.PublicKey.findProgramAddressSync(
@@ -308,6 +302,7 @@ export class BlindLinkClient {
     );
 
     // Account type resolved from IDL after `anchor build` generates types
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const session = await (this.program.account as any).psiSession.fetch(sessionPda);
 
     if (session.status !== 2) {
@@ -385,6 +380,9 @@ export class BlindLinkClient {
   /**
    * Register the current user's contact hash in the Global Registry.
    * Should be called once during initial app onboarding.
+   *
+   * CRITICAL: Uses the same normalization as discovery to ensure matching.
+   * Imports from shared contact-hash module (dynamic import for client-side crypto).
    */
   async registerSelf(contactIdentifier: string): Promise<string> {
     await this.initSession();
@@ -393,16 +391,10 @@ export class BlindLinkClient {
       throw new Error("Session initialization failed");
     }
 
-    // Hash the user's own contact identifier
-    const encoder = new TextEncoder();
-    const data = encoder.encode(contactIdentifier.trim().toLowerCase());
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    const hashArray = new Uint8Array(hashBuffer);
-
-    let selfHash = BigInt(0);
-    for (let i = 0; i < 16; i++) {
-      selfHash |= BigInt(hashArray[i]) << BigInt(i * 8);
-    }
+    // Hash using shared canonicalization (dynamic import for Web Crypto API)
+    const { hashContact } = await import("../utils/contact-hash");
+    const hexHash = await hashContact(contactIdentifier);
+    const selfHash = BigInt("0x" + hexHash);
 
     // Encrypt the self-hash
     const ciphertexts = this.cipher.encrypt([selfHash], this.sessionNonce);
@@ -465,20 +457,6 @@ export class BlindLinkClient {
     return txSignature;
   }
 
-  // ── Internal Helpers ────────────────────────────────────────────────
-
-  /** Event listener for PSI completion (set up before tx submission). */
-  private awaitPsiEvent(): Promise<any> {
-    return new Promise((resolve) => {
-      const listener = this.program.addEventListener(
-        "psiCompleteEvent",
-        (event: any) => {
-          this.program.removeEventListener(listener as number);
-          resolve(event);
-        }
-      );
-    });
-  }
 }
 
 // ── Utilities ───────────────────────────────────────────────────────────
