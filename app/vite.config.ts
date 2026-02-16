@@ -21,18 +21,6 @@ export default defineConfig({
   worker: {
     format: "es",
   },
-  build: {
-    commonjsOptions: {
-      transformMixedEsModules: true,
-    },
-    rollupOptions: {
-      output: {
-        intro:
-          'if(typeof exports==="undefined"){var exports={};}' +
-          'if(typeof module==="undefined"){var module={exports:exports};}',
-      },
-    },
-  },
   optimizeDeps: {
     esbuildOptions: {
       define: {
