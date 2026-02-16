@@ -114,6 +114,10 @@ mod circuits {
 
     /// Register a new user's contact hash into the Global Registry.
     /// Inserts into the appropriate bucket using constant-time writes.
+    ///
+    /// Returns the updated registry. If the target bucket is full, the
+    /// insertion is silently skipped but counters are NOT incremented
+    /// (preventing state corruption).
     #[instruction]
     pub fn register_user(
         user_hash: Enc<Shared, ContactHash>,
@@ -124,24 +128,34 @@ mod circuits {
 
         let b_idx = (hash.hash % (NUM_BUCKETS as u128)) as u64;
 
+        // Check if target bucket has space BEFORE attempting insertion
+        let mut insertion_succeeded = false;
+
         for b in 0..NUM_BUCKETS {
             let is_target = (b as u64) == b_idx;
             let insert_pos = reg.buckets[b].count;
+            let has_space = insert_pos < (BUCKET_SIZE as u64);
 
             for j in 0..BUCKET_SIZE {
                 let is_insert_slot = (j as u64) == insert_pos;
 
-                if is_target && is_insert_slot {
+                if is_target && is_insert_slot && has_space {
                     reg.buckets[b].fingerprints[j] = hash.hash;
+                    insertion_succeeded = true;
                 }
             }
 
-            if is_target {
+            // Only increment if we actually inserted (prevents silent overflow)
+            if is_target && has_space {
                 reg.buckets[b].count += 1;
             }
         }
 
-        reg.total_users += 1;
+        // Only increment total if insertion succeeded
+        if insertion_succeeded {
+            reg.total_users += 1;
+        }
+
         registry.owner.from_arcis(reg)
     }
 
