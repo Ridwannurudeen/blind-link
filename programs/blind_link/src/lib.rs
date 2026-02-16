@@ -16,19 +16,19 @@ declare_id!("9TVgatCVVvFtmEkHD1VqC1hW6Ddy3TaWN1vqhdqgZYq5");
 // ── State Accounts ──────────────────────────────────────────────────────
 
 /// Global registry account storing MXE-encrypted user fingerprints.
-/// Cuckoo-filter bucket layout: 8 buckets × 512 entries × 32 bytes each.
-/// Total encrypted state: ~131 KB on-chain.
+/// Bucket layout: 4 buckets × 16 entries per bucket = 64 max users.
+/// Actual capacity may be less due to hash collisions in bucket assignment.
 #[account]
 pub struct RegistryState {
     pub bump: u8,
-    /// MXE-encrypted bucket data (8 buckets × 512 × 32-byte ciphertexts + counts)
-    /// Layout: [bucket_0_fingerprints..., bucket_0_count, bucket_1_fingerprints..., ...]
+    /// MXE-encrypted bucket data (4 buckets × 16 slots × u128 fingerprints + counts)
+    /// Layout serialized by Arcium MXE during computation callbacks
     pub encrypted_data: Vec<u8>,
     /// Encryption nonce for MXE state
     pub nonce: u128,
     /// Authority that can manage the registry
     pub authority: Pubkey,
-    /// Total computations processed (public counter)
+    /// Total PSI queries processed (not user count; that's encrypted in MXE)
     pub computation_count: u64,
 }
 
@@ -300,9 +300,9 @@ pub mod blind_link {
         registry.encrypted_data = verified.field_0.ciphertexts.iter().flat_map(|c| c.to_vec()).collect();
         registry.nonce = u128::from_le_bytes(verified.field_0.nonce.to_le_bytes());
 
+        // Note: Actual user count is encrypted in MXE state; cannot be read here
         emit!(UserRegisteredEvent {
             registry: registry.key(),
-            new_total: registry.computation_count + 1,
         });
 
         msg!("Blind-Link: User registered in Global Registry");
@@ -640,10 +640,12 @@ pub struct PsiCompleteEvent {
     pub result_nonce: [u8; 16],
 }
 
+/// Emitted when a user is successfully registered.
+/// Note: The actual user count is encrypted in MXE state and cannot be
+/// revealed here without a separate reveal_registry_size call.
 #[event]
 pub struct UserRegisteredEvent {
     pub registry: Pubkey,
-    pub new_total: u64,
 }
 
 #[event]
