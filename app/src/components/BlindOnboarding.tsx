@@ -125,11 +125,7 @@ export const BlindOnboarding: React.FC<BlindOnboardingProps> = ({
       <div className="step-content">
         {state.step === "idle" && (
           <div className="idle-state">
-            <p>
-              {Math.min(contacts.length, 16)} contact
-              {Math.min(contacts.length, 16) !== 1 ? "s" : ""} ready for private discovery
-              {contacts.length > 16 && ` (max 16 per batch, ${contacts.length - 16} will be queued)`}
-            </p>
+            <p>{contacts.length} contacts ready for private discovery</p>
             <button className="btn-primary" onClick={startOnboarding}>
               Start Private Discovery
             </button>
@@ -186,8 +182,8 @@ export const BlindOnboarding: React.FC<BlindOnboardingProps> = ({
               {state.result.matchCount !== 1 ? "s" : ""} found!
             </h3>
             <p>
-              Out of {Math.min(state.result.totalChecked, 16)} contacts processed,{" "}
-              {state.result.matchCount} {state.result.matchCount !== 1 ? "are" : "is"} already registered.
+              Out of {state.result.totalChecked} contacts checked,{" "}
+              {state.result.matchCount} are already on the platform.
             </p>
 
             {state.result.matchedContacts.length > 0 && (
