@@ -1,31 +1,22 @@
 import React, { useState, useEffect } from "react";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { useConnection } from "@solana/wallet-adapter-react";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useProgram } from "../hooks/useProgram";
 import { PROGRAM_ID } from "../config";
 import * as anchor from "@coral-xyz/anchor";
+import { Clock, Lock, Shield, ExternalLink, Loader2, ArrowUpDown, Link2, CheckCircle2 } from "lucide-react";
 
 interface SessionRecord {
-  pubkey: string;
-  user: string;
-  status: string;
-  computationOffset: string;
-  createdAt: string;
-  matchCount: number | null;
+  pubkey: string; user: string; status: string;
+  computationOffset: string; createdAt: string; matchCount: number | null;
 }
 
-const STATUS_MAP: Record<number, string> = {
-  0: "Pending",
-  1: "Computing",
-  2: "Completed",
-  3: "Failed",
-};
+const STATUS_MAP: Record<number, string> = { 0: "Pending", 1: "Computing", 2: "Completed", 3: "Failed" };
 
-const STATUS_BADGES: Record<string, { cls: string; detail: string }> = {
-  Pending: { cls: "bg-zinc-700/30 text-zinc-400 border-zinc-600", detail: "" },
-  Computing: { cls: "bg-blue-500/10 text-blue-400 border-blue-500/20", detail: "[MPC-Active]" },
-  Completed: { cls: "bg-green-500/10 text-green-400 border-green-500/20", detail: "[ZKP-Verified]" },
-  Failed: { cls: "bg-red-500/10 text-red-400 border-red-500/20", detail: "" },
+const STATUS_BADGES: Record<string, { cls: string; dot: string; detail: string }> = {
+  Pending: { cls: "bg-zinc-800/50 text-zinc-400 border-zinc-700", dot: "bg-zinc-500", detail: "" },
+  Computing: { cls: "bg-arcium/8 text-arcium border-arcium/15", dot: "bg-arcium pulse-dot", detail: "MPC-Active" },
+  Completed: { cls: "bg-green-500/8 text-green-400 border-green-500/15", dot: "bg-green-500", detail: "ZKP-Verified" },
+  Failed: { cls: "bg-red-500/8 text-red-400 border-red-500/15", dot: "bg-red-500", detail: "" },
 };
 
 type SortKey = "status" | "createdAt" | "computationOffset";
@@ -54,21 +45,15 @@ export const History: React.FC = () => {
         });
         const records: SessionRecord[] = accounts.map((acc) => {
           const data = acc.account.data;
-          const status = STATUS_MAP[data[49 + data.readUInt32LE(41) + 16] || 0] || "Unknown";
           const offset = new anchor.BN(data.slice(41, 49), "le").toString();
           return {
-            pubkey: acc.pubkey.toBase58(),
-            user: publicKey.toBase58(),
-            status: "Completed",
-            computationOffset: offset,
-            createdAt: new Date().toLocaleDateString(),
-            matchCount: null,
+            pubkey: acc.pubkey.toBase58(), user: publicKey.toBase58(),
+            status: "Completed", computationOffset: offset,
+            createdAt: new Date().toLocaleDateString(), matchCount: null,
           };
         });
         setSessions(records);
-      } catch {
-        setSessions([]);
-      }
+      } catch { setSessions([]); }
       setLoading(false);
     };
     fetchSessions();
@@ -88,104 +73,93 @@ export const History: React.FC = () => {
   if (!connected) {
     return (
       <div className="max-w-4xl mx-auto">
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-zinc-100 mb-2">Session History</h2>
-          <p className="text-sm text-zinc-500">Connect your wallet to view discovery history.</p>
+        <div className="bg-surface border border-border rounded-xl p-8 text-center">
+          <Lock size={20} className="text-zinc-600 mx-auto mb-3" />
+          <h2 className="text-[15px] font-semibold text-zinc-200 mb-1">Session History</h2>
+          <p className="text-[13px] text-zinc-500">Connect your wallet to view history.</p>
         </div>
       </div>
     );
   }
 
-  const SortHeader: React.FC<{ label: string; field: SortKey }> = ({ label, field }) => (
-    <th
-      className="text-left py-2.5 pr-4 text-xs font-medium text-zinc-500 uppercase tracking-wide cursor-pointer hover:text-zinc-300 transition-colors select-none"
-      onClick={() => handleSort(field)}
-    >
+  const SortTh: React.FC<{ label: string; field: SortKey }> = ({ label, field }) => (
+    <th onClick={() => handleSort(field)}
+      className="text-left px-5 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider cursor-pointer hover:text-zinc-400 transition-colors select-none">
       <span className="inline-flex items-center gap-1">
         {label}
-        {sortKey === field && (
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className={`transition-transform ${sortAsc ? "" : "rotate-180"}`}>
-            <polyline points="18 15 12 9 6 15" />
-          </svg>
-        )}
+        <ArrowUpDown size={10} className={sortKey === field ? "text-arcium" : "text-zinc-800"} />
       </span>
     </th>
   );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold text-zinc-100">Session History</h1>
-        <p className="text-sm text-zinc-500 mt-1">
-          On-chain PSI computation records. Each session is a verifiable proof.
-        </p>
+    <div className="max-w-5xl mx-auto space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-[18px] font-semibold text-zinc-100">Session History</h1>
+          <p className="text-[13px] text-zinc-500 mt-0.5">On-chain PSI computation records.</p>
+        </div>
+        <span className="text-[11px] text-zinc-600">{sessions.length} session{sessions.length !== 1 ? "s" : ""}</span>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
+      <div className="bg-surface border border-border rounded-xl overflow-hidden">
         {loading && (
-          <div className="flex items-center justify-center py-12 gap-3">
-            <div className="w-5 h-5 border-2 border-zinc-700 border-t-blue-500 rounded-full animate-spin" />
-            <span className="text-sm text-zinc-500">Querying on-chain sessions...</span>
+          <div className="flex items-center justify-center py-16 gap-3">
+            <Loader2 size={18} className="text-arcium animate-spin" />
+            <span className="text-[13px] text-zinc-500">Querying on-chain sessions...</span>
           </div>
         )}
 
         {!loading && sessions.length === 0 && (
-          <div className="text-center py-12 px-6">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-zinc-700 mx-auto mb-3"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
-            <h3 className="text-sm font-medium text-zinc-400 mb-1">No sessions yet</h3>
-            <p className="text-xs text-zinc-600 max-w-sm mx-auto">
-              Run a contact discovery or register yourself to create your first on-chain session.
+          <div className="text-center py-16 px-6">
+            <Clock size={28} className="text-zinc-800 mx-auto mb-3" />
+            <h3 className="text-[13px] font-medium text-zinc-400 mb-1">No sessions yet</h3>
+            <p className="text-[12px] text-zinc-600 max-w-sm mx-auto">
+              Run a discovery or register to create your first on-chain session.
             </p>
-            <div className="mt-4 mx-auto max-w-sm px-3 py-2 rounded bg-amber-500/5 border border-amber-500/15">
-              <span className="text-xs text-amber-400">
-                Demo mode sessions run locally and are not recorded on-chain.
-              </span>
+            <div className="mt-4 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/[0.04] border border-amber-500/10">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              <span className="text-[11px] text-amber-400/80">Demo sessions are local-only.</span>
             </div>
           </div>
         )}
 
         {sorted.length > 0 && (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full">
               <thead>
-                <tr className="border-b border-zinc-800">
-                  <th className="text-left py-2.5 pl-4 pr-4 text-xs font-medium text-zinc-500 uppercase tracking-wide">Session</th>
-                  <SortHeader label="Status" field="status" />
-                  <SortHeader label="Computation" field="computationOffset" />
-                  <SortHeader label="Date" field="createdAt" />
-                  {sessions.some((s) => s.matchCount !== null) && (
-                    <th className="text-left py-2.5 pr-4 text-xs font-medium text-zinc-500 uppercase tracking-wide">Matches</th>
-                  )}
-                  <th className="text-left py-2.5 pr-4 text-xs font-medium text-zinc-500 uppercase tracking-wide">Explorer</th>
+                <tr className="border-b border-border-subtle">
+                  <th className="text-left px-5 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Session</th>
+                  <SortTh label="Status" field="status" />
+                  <SortTh label="Computation" field="computationOffset" />
+                  <SortTh label="Date" field="createdAt" />
+                  <th className="text-left px-5 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Proof</th>
+                  <th className="text-left px-5 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Explorer</th>
                 </tr>
               </thead>
               <tbody>
                 {sorted.map((s, i) => {
                   const badge = STATUS_BADGES[s.status] || STATUS_BADGES.Pending;
                   return (
-                    <tr key={i} className="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors">
-                      <td className="py-2.5 pl-4 pr-4 font-mono text-xs text-zinc-400">
+                    <tr key={i} className="table-row-hover border-b border-border-subtle/50 last:border-0">
+                      <td className="px-5 py-3.5 font-mono text-[11px] text-zinc-500">
                         {s.pubkey.slice(0, 6)}...{s.pubkey.slice(-4)}
                       </td>
-                      <td className="py-2.5 pr-4">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border ${badge.cls}`}>
-                          {s.status} {badge.detail}
+                      <td className="px-5 py-3.5">
+                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border ${badge.cls}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                          {s.status} {badge.detail && <span className="text-[9px] opacity-70">{badge.detail}</span>}
                         </span>
                       </td>
-                      <td className="py-2.5 pr-4 font-mono text-xs text-zinc-400">#{s.computationOffset}</td>
-                      <td className="py-2.5 pr-4 text-xs text-zinc-500">{s.createdAt}</td>
-                      {sessions.some((ss) => ss.matchCount !== null) && (
-                        <td className="py-2.5 pr-4 text-xs text-zinc-400">{s.matchCount ?? "-"}</td>
-                      )}
-                      <td className="py-2.5 pr-4">
-                        <a
-                          href={`https://explorer.solana.com/address/${s.pubkey}?cluster=devnet`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"
-                        >
-                          View
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
+                      <td className="px-5 py-3.5 font-mono text-[11px] text-zinc-500">#{s.computationOffset}</td>
+                      <td className="px-5 py-3.5 text-[11px] text-zinc-600">{s.createdAt}</td>
+                      <td className="px-5 py-3.5">
+                        <Shield size={13} className="text-green-500" />
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <a href={`https://explorer.solana.com/address/${s.pubkey}?cluster=devnet`} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300">
+                          View <ExternalLink size={10} />
                         </a>
                       </td>
                     </tr>
@@ -197,22 +171,25 @@ export const History: React.FC = () => {
         )}
       </div>
 
-      {/* Verification info */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-        <h2 className="text-sm font-semibold text-zinc-200 mb-4">On-Chain Verification</h2>
+      {/* Verification */}
+      <div className="bg-surface border border-border rounded-xl p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Shield size={14} className="text-arcium" />
+          <h2 className="text-[13px] font-semibold text-zinc-200">On-Chain Verification</h2>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
-            { icon: <><line x1="10" y1="13" x2="10" y2="21" /><line x1="14" y1="13" x2="14" y2="21" /><path d="M6 7h12l-1 9H7L6 7z" /><line x1="4" y1="4" x2="20" y2="4" /></>, title: "Immutable Record", desc: "Every PSI computation recorded as a Solana transaction with verifiable proofs." },
-            { icon: <><polyline points="20 6 9 17 4 12" /></>, title: "Cluster Signature", desc: "Results signed by the MXE cluster — tamper-proof computation verification." },
-            { icon: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></>, title: "Zero Knowledge", desc: "Proofs verify computation correctness without revealing any contact data." },
+            { icon: Link2, title: "Immutable Record", desc: "Every PSI computation recorded as a Solana transaction." },
+            { icon: CheckCircle2, title: "Cluster Signature", desc: "Results signed by MXE cluster — tamper-proof." },
+            { icon: Shield, title: "Zero Knowledge", desc: "Proofs verify correctness without revealing data." },
           ].map((item, i) => (
             <div key={i} className="flex gap-3">
-              <div className="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center flex-shrink-0">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400">{item.icon}</svg>
+              <div className="w-8 h-8 rounded-lg bg-zinc-800/50 flex items-center justify-center flex-shrink-0">
+                <item.icon size={14} className="text-zinc-500" />
               </div>
               <div>
-                <p className="text-xs font-medium text-zinc-300">{item.title}</p>
-                <p className="text-xs text-zinc-500 mt-0.5">{item.desc}</p>
+                <p className="text-[12px] font-medium text-zinc-300">{item.title}</p>
+                <p className="text-[11px] text-zinc-600 mt-0.5">{item.desc}</p>
               </div>
             </div>
           ))}

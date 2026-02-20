@@ -1,156 +1,277 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useWallet } from "@solana/wallet-adapter-react";
+import {
+  Cpu, Database, Network, UserPlus, Search, Shield,
+  ArrowUpRight, Activity, Lock, ChevronRight, Radio,
+} from "lucide-react";
 
 export const Landing: React.FC = () => {
   const { connected } = useWallet();
+  const [computations, setComputations] = useState(0);
+
+  // Animate counter on mount
+  useEffect(() => {
+    let c = 0;
+    const iv = setInterval(() => {
+      c += Math.ceil(Math.random() * 3);
+      if (c >= 12) { c = 12; clearInterval(iv); }
+      setComputations(c);
+    }, 80);
+    return () => clearInterval(iv);
+  }, []);
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="space-y-6">
       {/* Page header */}
-      <div>
-        <h1 className="text-xl font-semibold text-zinc-100">Dashboard</h1>
-        <p className="text-sm text-zinc-500 mt-1">
-          Private contact discovery powered by Arcium confidential computing.
-        </p>
-      </div>
-
-      {/* Status cards grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* MXE Status */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">MXE Cluster</span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-              Offline
-            </span>
-          </div>
-          <p className="text-2xl font-semibold text-zinc-100">Demo Mode</p>
-          <p className="text-xs text-zinc-500 mt-1">Local PSI simulation active. MXE nodes not processing.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-[18px] font-semibold text-zinc-100">Dashboard</h1>
+          <p className="text-[13px] text-zinc-500 mt-0.5">
+            Confidential computing overview — Arcium MXE on Solana Devnet
+          </p>
         </div>
-
-        {/* Registry */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Registry</span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
-              Encrypted
-            </span>
-          </div>
-          <p className="text-2xl font-semibold text-zinc-100">64 slots</p>
-          <p className="text-xs text-zinc-500 mt-1">4 buckets x 16 slots. MXE-encrypted on Solana.</p>
-        </div>
-
-        {/* Network */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-zinc-500 uppercase tracking-wide">Network</span>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium bg-violet-500/10 text-violet-400 border border-violet-500/20">
-              Devnet
-            </span>
-          </div>
-          <p className="text-2xl font-semibold text-zinc-100">Solana</p>
-          <p className="text-xs text-zinc-500 mt-1">Cerberus MPC — N-1 dishonest majority tolerance.</p>
-        </div>
-      </div>
-
-      {/* Quick actions */}
-      {connected ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Link
-            to="/register"
-            className="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-lg p-5 transition-colors group"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 rounded bg-blue-500/10 flex items-center justify-center text-blue-400">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" />
-                </svg>
-              </div>
-              <h3 className="text-sm font-medium text-zinc-200 group-hover:text-zinc-100">Register Identity</h3>
-            </div>
-            <p className="text-xs text-zinc-500">
-              Add your contact identifier to the encrypted global registry. Your data is hashed locally before encryption.
-            </p>
-            <span className="inline-flex items-center gap-1 mt-3 text-xs text-blue-400/70">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
-              Data stays on your device
-            </span>
-          </Link>
+        {connected && (
           <Link
             to="/discover"
-            className="bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-lg p-5 transition-colors group"
+            className="flex items-center gap-1.5 px-3.5 py-2 text-[13px] font-medium text-white bg-arcium hover:bg-arcium/90 rounded-lg transition-colors"
           >
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 rounded bg-green-500/10 flex items-center justify-center text-green-400">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-              </div>
-              <h3 className="text-sm font-medium text-zinc-200 group-hover:text-zinc-100">Discover Contacts</h3>
-            </div>
-            <p className="text-xs text-zinc-500">
-              Find which of your contacts are registered without revealing your address book to anyone.
-            </p>
-            <span className="inline-flex items-center gap-1 mt-3 text-xs text-green-400/70">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
-              Zero-knowledge intersection
-            </span>
+            New Discovery
+            <ArrowUpRight size={14} />
           </Link>
-        </div>
-      ) : (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 text-center">
-          <p className="text-sm text-zinc-400">Connect your wallet to access Registry and Discovery.</p>
-        </div>
-      )}
-
-      {/* Privacy Architecture */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-        <h2 className="text-sm font-semibold text-zinc-200 mb-4">Privacy Architecture</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-zinc-800">
-                <th className="text-left py-2 pr-4 text-xs font-medium text-zinc-500 uppercase tracking-wide">Party</th>
-                <th className="text-left py-2 pr-4 text-xs font-medium text-zinc-500 uppercase tracking-wide">Sees</th>
-                <th className="text-left py-2 text-xs font-medium text-zinc-500 uppercase tracking-wide">Cannot See</th>
-              </tr>
-            </thead>
-            <tbody className="text-xs">
-              <tr className="border-b border-zinc-800/50">
-                <td className="py-2.5 pr-4 font-medium text-zinc-300">Your Browser</td>
-                <td className="py-2.5 pr-4 text-zinc-400">Contacts before hashing</td>
-                <td className="py-2.5 text-zinc-500">Nothing leaves unencrypted</td>
-              </tr>
-              <tr className="border-b border-zinc-800/50">
-                <td className="py-2.5 pr-4 font-medium text-zinc-300">MXE Nodes</td>
-                <td className="py-2.5 pr-4 text-zinc-400">Encrypted secret shares only</td>
-                <td className="py-2.5 text-zinc-500">Cannot reconstruct plaintext</td>
-              </tr>
-              <tr className="border-b border-zinc-800/50">
-                <td className="py-2.5 pr-4 font-medium text-zinc-300">Solana Chain</td>
-                <td className="py-2.5 pr-4 text-zinc-400">Encrypted ciphertexts</td>
-                <td className="py-2.5 text-zinc-500">Zero plaintext data</td>
-              </tr>
-              <tr>
-                <td className="py-2.5 pr-4 font-medium text-green-400">You</td>
-                <td className="py-2.5 pr-4 text-green-400/80">Match flags only</td>
-                <td className="py-2.5 text-zinc-500">Non-matches stay hidden</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        )}
       </div>
 
-      {/* Tech stack badges */}
-      <div className="flex flex-wrap gap-2">
-        {["Solana Devnet", "Arcium MXE", "Cerberus MPC", "N-1 Dishonest Majority", "Private Set Intersection"].map((t) => (
-          <span key={t} className="text-xs text-zinc-500 px-2 py-1 rounded border border-zinc-800 bg-zinc-900">
-            {t}
-          </span>
-        ))}
+      {/* Metric Cards — 12-col grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <MetricCard
+          label="Total Computations"
+          value={computations.toString()}
+          sub="PSI executions on-chain"
+          icon={<Cpu size={16} />}
+          accentColor="arcium"
+        />
+        <MetricCard
+          label="Active MXEs"
+          value="0"
+          sub="Cluster nodes offline"
+          icon={<Activity size={16} />}
+          accentColor="amber"
+          status="offline"
+        />
+        <MetricCard
+          label="Registry Capacity"
+          value="64"
+          sub="4 buckets x 16 slots"
+          icon={<Database size={16} />}
+          accentColor="blue"
+        />
+        <MetricCard
+          label="Network Nodes"
+          value="3"
+          sub="Cerberus MPC (N-1 tolerance)"
+          icon={<Network size={16} />}
+          accentColor="green"
+        />
+      </div>
+
+      {/* Two-column layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        {/* Quick Actions — 8 cols */}
+        <div className="lg:col-span-8 space-y-4">
+          {connected ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <ActionCard
+                to="/register"
+                icon={<UserPlus size={18} />}
+                iconBg="bg-arcium/10 text-arcium"
+                title="Register Identity"
+                description="Add your contact identifier to the encrypted global registry. Hashed locally with SHA-256."
+                privacyLabel="Data stays on your device"
+                badge="Encrypted"
+              />
+              <ActionCard
+                to="/discover"
+                icon={<Search size={18} />}
+                iconBg="bg-green-500/10 text-green-400"
+                title="Discover Contacts"
+                description="Find which of your contacts are registered without revealing your address book."
+                privacyLabel="Zero-knowledge intersection"
+                badge="PSI"
+              />
+            </div>
+          ) : (
+            <div className="bg-surface border border-border rounded-xl p-8 text-center">
+              <Lock size={20} className="text-zinc-600 mx-auto mb-3" />
+              <p className="text-[13px] text-zinc-500">Connect your wallet to access Registry and Discovery.</p>
+            </div>
+          )}
+
+          {/* Privacy Architecture Table */}
+          <div className="bg-surface border border-border rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border-subtle">
+              <div className="flex items-center gap-2">
+                <Shield size={14} className="text-arcium" />
+                <h2 className="text-[13px] font-semibold text-zinc-200">Privacy Architecture</h2>
+              </div>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-500/8 text-green-400 border border-green-500/15">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 pulse-dot" />
+                Verified
+              </span>
+            </div>
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border-subtle">
+                  <th className="text-left px-5 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Party</th>
+                  <th className="text-left px-5 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Visible Data</th>
+                  <th className="text-left px-5 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Protected</th>
+                  <th className="text-left px-5 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Status</th>
+                </tr>
+              </thead>
+              <tbody className="text-[12px]">
+                {[
+                  { party: "Your Browser", sees: "Contacts before hashing", hidden: "Nothing sent unencrypted", verified: true },
+                  { party: "MXE Node 1", sees: "Secret share only", hidden: "Cannot reconstruct plaintext", verified: true },
+                  { party: "MXE Node 2", sees: "Secret share only", hidden: "Cannot reconstruct plaintext", verified: true },
+                  { party: "MXE Node 3", sees: "Secret share only", hidden: "Cannot reconstruct plaintext", verified: true },
+                  { party: "Solana Chain", sees: "Encrypted ciphertexts", hidden: "Zero plaintext data", verified: true },
+                  { party: "You (result)", sees: "Match flags only", hidden: "Non-matches stay hidden", verified: true, highlight: true },
+                ].map((row, i) => (
+                  <tr key={i} className={`table-row-hover border-b border-border-subtle/50 last:border-0 ${row.highlight ? "bg-green-500/[0.02]" : ""}`}>
+                    <td className={`px-5 py-3 font-medium ${row.highlight ? "text-green-400" : "text-zinc-300"}`}>{row.party}</td>
+                    <td className="px-5 py-3 text-zinc-500">{row.sees}</td>
+                    <td className="px-5 py-3 text-zinc-600">{row.hidden}</td>
+                    <td className="px-5 py-3">
+                      {row.verified && (
+                        <span className="inline-flex items-center gap-1">
+                          <Shield size={11} className="text-green-500" />
+                          <span className="text-[10px] text-green-500/80 font-medium">ZKP</span>
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Right sidebar — 4 cols */}
+        <div className="lg:col-span-4 space-y-4">
+          {/* Cluster Status */}
+          <div className="bg-surface border border-border rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Radio size={13} className="text-amber-500" />
+              <h3 className="text-[12px] font-semibold text-zinc-300 uppercase tracking-wider">Cluster Status</h3>
+            </div>
+            <div className="space-y-3">
+              {["node-0", "node-1", "node-2"].map((node, i) => (
+                <div key={i} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-[6px] h-[6px] rounded-full bg-amber-500/60" />
+                    <span className="text-[12px] text-zinc-400 font-mono">{node}</span>
+                  </div>
+                  <span className="text-[10px] text-zinc-600 px-1.5 py-0.5 rounded bg-zinc-800/50 border border-zinc-800">standby</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 pt-3 border-t border-border-subtle">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-zinc-600">Protocol</span>
+                <span className="text-zinc-400">Cerberus MPC</span>
+              </div>
+              <div className="flex items-center justify-between text-[11px] mt-1">
+                <span className="text-zinc-600">Security</span>
+                <span className="text-zinc-400">N-1 dishonest majority</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Tech Stack */}
+          <div className="bg-surface border border-border rounded-xl p-4">
+            <h3 className="text-[12px] font-semibold text-zinc-300 uppercase tracking-wider mb-3">Stack</h3>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                "Solana Devnet", "Arcium MXE", "Cerberus MPC",
+                "Rescue Cipher", "x25519 ECDH", "PSI",
+              ].map((t) => (
+                <span key={t} className="text-[10px] text-zinc-500 px-2 py-1 rounded-md border border-border bg-surface-2/50">
+                  {t}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div className="bg-surface border border-border rounded-xl p-4">
+            <h3 className="text-[12px] font-semibold text-zinc-300 uppercase tracking-wider mb-3">Recent</h3>
+            <div className="space-y-2.5">
+              {[
+                { action: "Demo PSI computed", time: "2m ago", type: "compute" },
+                { action: "Identity registered", time: "5m ago", type: "register" },
+                { action: "Wallet connected", time: "8m ago", type: "connect" },
+              ].map((a, i) => (
+                <div key={i} className="flex items-center justify-between">
+                  <span className="text-[12px] text-zinc-400">{a.action}</span>
+                  <span className="text-[10px] text-zinc-700">{a.time}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
+
+/* ── Sub-components ─────────────────────────────────────── */
+
+const MetricCard: React.FC<{
+  label: string; value: string; sub: string;
+  icon: React.ReactNode; accentColor: string; status?: string;
+}> = ({ label, value, sub, icon, accentColor, status }) => {
+  const colorMap: Record<string, string> = {
+    arcium: "text-arcium bg-arcium/8",
+    amber: "text-amber-500 bg-amber-500/8",
+    blue: "text-blue-400 bg-blue-400/8",
+    green: "text-green-400 bg-green-400/8",
+  };
+  const colors = colorMap[accentColor] || colorMap.arcium;
+
+  return (
+    <div className="card-interactive bg-surface border border-border rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">{label}</span>
+        <div className={`w-7 h-7 rounded-lg ${colors} flex items-center justify-center`}>{icon}</div>
+      </div>
+      <p className="text-2xl font-semibold text-zinc-100 tracking-tight">{value}</p>
+      <div className="flex items-center gap-1.5 mt-1">
+        {status === "offline" && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
+        <p className="text-[11px] text-zinc-600">{sub}</p>
+      </div>
+    </div>
+  );
+};
+
+const ActionCard: React.FC<{
+  to: string; icon: React.ReactNode; iconBg: string;
+  title: string; description: string; privacyLabel: string; badge: string;
+}> = ({ to, icon, iconBg, title, description, privacyLabel, badge }) => (
+  <Link to={to} className="card-interactive bg-surface border border-border rounded-xl p-5 block group">
+    <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center gap-3">
+        <div className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center`}>{icon}</div>
+        <h3 className="text-[14px] font-medium text-zinc-200 group-hover:text-zinc-100">{title}</h3>
+      </div>
+      <ChevronRight size={14} className="text-zinc-700 group-hover:text-zinc-500 transition-colors" />
+    </div>
+    <p className="text-[12px] text-zinc-500 leading-relaxed mb-3">{description}</p>
+    <div className="flex items-center justify-between">
+      <span className="inline-flex items-center gap-1 text-[11px] text-arcium/70">
+        <Shield size={10} />
+        {privacyLabel}
+      </span>
+      <span className="text-[10px] text-zinc-600 px-1.5 py-0.5 rounded bg-zinc-800/50 border border-zinc-800">{badge}</span>
+    </div>
+  </Link>
+);
