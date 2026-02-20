@@ -165,4 +165,21 @@ mod circuits {
         let reg = registry.to_arcis();
         reg.total_users.reveal()
     }
+
+    /// Bootstrap the Global Registry with MXE-encrypted empty state.
+    /// Must be called once before any register_user or intersect_contacts.
+    /// Creates a properly encrypted zero-state that MPC nodes can decrypt.
+    #[instruction]
+    pub fn init_registry() -> Enc<Mxe, GlobalRegistry> {
+        let registry = GlobalRegistry {
+            buckets: [
+                RegistryBucket { fingerprints: [0u128; BUCKET_SIZE], count: 0 },
+                RegistryBucket { fingerprints: [0u128; BUCKET_SIZE], count: 0 },
+                RegistryBucket { fingerprints: [0u128; BUCKET_SIZE], count: 0 },
+                RegistryBucket { fingerprints: [0u128; BUCKET_SIZE], count: 0 },
+            ],
+            total_users: 0,
+        };
+        Mxe::get().from_arcis(registry)
+    }
 }

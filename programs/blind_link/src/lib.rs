@@ -11,7 +11,7 @@ use arcium_anchor::comp_def_offset;
 use arcium_anchor::prelude::*;
 use arcium_client::idl::arcium::types::CallbackAccount;
 
-declare_id!("9TVgatCVVvFtmEkHD1VqC1hW6Ddy3TaWN1vqhdqgZYq5");
+declare_id!("88vVM7s7TKCPeJ8DNHnctTTTWFWwSmSDAxnuTRjuzTyn");
 
 // ── State Accounts ──────────────────────────────────────────────────────
 
@@ -109,6 +109,16 @@ pub mod blind_link {
         Ok(())
     }
 
+
+    /// Initialize the computation definition for init_registry.
+    pub fn init_init_registry_comp_def(
+        ctx: Context<InitInitRegistryCompDef>,
+    ) -> Result<()> {
+        init_comp_def(ctx.accounts, None, None)?;
+        msg!("Blind-Link: init_registry comp_def registered");
+        Ok(())
+    }
+
     // ── 3. Queue PSI Computation ────────────────────────────────────
 
     /// Submit encrypted contact hashes for private intersection.
@@ -165,6 +175,9 @@ pub mod blind_link {
         let args = arg_builder
             .account(registry_key, registry_data_offset as u32, registry_data_len as u32)
             .build();
+
+        // Initialize sign PDA bump for CPI signing
+        ctx.accounts.sign_pda_account.bump = ctx.bumps.sign_pda_account;
 
         // Queue the MPC computation with callback
         queue_computation(
@@ -258,6 +271,9 @@ pub mod blind_link {
             .account(registry_key, registry_data_offset as u32, registry_data_len as u32)
             .build();
 
+        // Initialize sign PDA bump for CPI signing
+        ctx.accounts.sign_pda_account.bump = ctx.bumps.sign_pda_account;
+
         queue_computation(
             ctx.accounts,
             computation_offset,
@@ -323,6 +339,9 @@ pub mod blind_link {
             .account(registry_key, registry_data_offset as u32, registry_data_len as u32)
             .build();
 
+        // Initialize sign PDA bump for CPI signing
+        ctx.accounts.sign_pda_account.bump = ctx.bumps.sign_pda_account;
+
         queue_computation(
             ctx.accounts,
             computation_offset,
@@ -362,13 +381,73 @@ pub mod blind_link {
         msg!("Blind-Link: Registry size = {}", verified.field_0);
         Ok(())
     }
-}
+
+    // ── 7. Bootstrap Registry ───────────────────────────────────────
+
+    /// Queue MXE computation to create initial encrypted registry state.
+    /// Must be called once after deployment, before any register_user.
+    pub fn queue_init_registry(
+        ctx: Context<QueueInitRegistry>,
+        computation_offset: u64,
+    ) -> Result<()> {
+        // Initialize sign PDA bump for CPI signing
+        ctx.accounts.sign_pda_account.bump = ctx.bumps.sign_pda_account;
+
+        // No encrypted inputs — the circuit creates state from scratch
+        let args = ArgBuilder::new().build();
+
+        queue_computation(
+            ctx.accounts,
+            computation_offset,
+            args,
+            vec![InitRegistryCallback::callback_ix(
+                computation_offset,
+                &ctx.accounts.mxe_account,
+                &[CallbackAccount {
+                    pubkey: ctx.accounts.registry_state.key(),
+                    is_writable: true,
+                }],
+            )?],
+            1,
+            0,
+        )?;
+
+        msg!("Blind-Link: Registry bootstrap computation queued");
+        Ok(())
+    }
+
+    /// Callback for init_registry: stores the initial MXE-encrypted state.
+    #[arcium_callback(encrypted_ix = "init_registry")]
+    pub fn init_registry_callback(
+        ctx: Context<InitRegistryCallback>,
+        output: SignedComputationOutputs<InitRegistryOutput>,
+    ) -> Result<()> {
+        let verified = match output.verify_output(
+            &ctx.accounts.cluster_account,
+            &ctx.accounts.computation_account,
+        ) {
+            Ok(out) => out,
+            Err(e) => {
+                msg!("Blind-Link: Registry init verification failed: {}", e);
+                return Err(ErrorCode::VerificationFailed.into());
+            }
+        };
+
+        let registry = &mut ctx.accounts.registry_state;
+        registry.encrypted_data = verified.field_0.ciphertexts.iter().flat_map(|c| c.to_vec()).collect();
+        registry.nonce = u128::from_le_bytes(verified.field_0.nonce.to_le_bytes());
+
+        msg!("Blind-Link: Registry bootstrapped with MXE-encrypted initial state ({} bytes)", registry.encrypted_data.len());
+        Ok(())
+    }
+
 
 // ── Comp Def Offsets ────────────────────────────────────────────────────
 
 const COMP_DEF_OFFSET_INTERSECT_CONTACTS: u32 = comp_def_offset("intersect_contacts");
 const COMP_DEF_OFFSET_REGISTER_USER: u32 = comp_def_offset("register_user");
 const COMP_DEF_OFFSET_REVEAL_REGISTRY_SIZE: u32 = comp_def_offset("reveal_registry_size");
+const COMP_DEF_OFFSET_INIT_REGISTRY: u32 = comp_def_offset("init_registry");
 
 // ── Account Structs ─────────────────────────────────────────────────────
 
@@ -636,6 +715,86 @@ pub struct RevealRegistrySizeCallback<'info> {
     pub instructions_sysvar: AccountInfo<'info>,
 }
 
+
+#[init_computation_definition_accounts("init_registry", payer)]
+#[derive(Accounts)]
+pub struct InitInitRegistryCompDef<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(mut, address = derive_mxe_pda!())]
+    pub mxe_account: Box<Account<'info, MXEAccount>>,
+    #[account(mut)]
+    /// CHECK: comp_def_account, checked by arcium program.
+    pub comp_def_account: UncheckedAccount<'info>,
+    #[account(mut, address = derive_mxe_lut_pda!(mxe_account.lut_offset_slot))]
+    /// CHECK: address_lookup_table, checked by arcium program.
+    pub address_lookup_table: UncheckedAccount<'info>,
+    #[account(address = LUT_PROGRAM_ID)]
+    /// CHECK: lut_program is the Address Lookup Table program.
+    pub lut_program: UncheckedAccount<'info>,
+    pub arcium_program: Program<'info, Arcium>,
+    pub system_program: Program<'info, System>,
+}
+
+#[queue_computation_accounts("init_registry", payer)]
+#[derive(Accounts)]
+#[instruction(computation_offset: u64)]
+pub struct QueueInitRegistry<'info> {
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    #[account(mut, seeds = [REGISTRY_SEED], bump = registry_state.bump)]
+    pub registry_state: Account<'info, RegistryState>,
+    #[account(
+        init_if_needed,
+        space = 9,
+        payer = payer,
+        seeds = [&SIGN_PDA_SEED],
+        bump,
+        address = derive_sign_pda!(),
+    )]
+    pub sign_pda_account: Account<'info, ArciumSignerAccount>,
+    #[account(address = derive_mxe_pda!())]
+    pub mxe_account: Box<Account<'info, MXEAccount>>,
+    #[account(mut, address = derive_mempool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+    /// CHECK: mempool_account, checked by arcium program.
+    pub mempool_account: UncheckedAccount<'info>,
+    #[account(mut, address = derive_execpool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+    /// CHECK: executing_pool, checked by arcium program.
+    pub executing_pool: UncheckedAccount<'info>,
+    #[account(mut, address = derive_comp_pda!(computation_offset, mxe_account, ErrorCode::ClusterNotSet))]
+    /// CHECK: computation_account, checked by arcium program.
+    pub computation_account: UncheckedAccount<'info>,
+    #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_INIT_REGISTRY))]
+    pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
+    #[account(mut, address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+    pub cluster_account: Account<'info, Cluster>,
+    #[account(mut, address = ARCIUM_FEE_POOL_ACCOUNT_ADDRESS)]
+    pub pool_account: Account<'info, FeePool>,
+    #[account(mut, address = ARCIUM_CLOCK_ACCOUNT_ADDRESS)]
+    pub clock_account: Account<'info, ClockAccount>,
+    pub system_program: Program<'info, System>,
+    pub arcium_program: Program<'info, Arcium>,
+}
+
+#[callback_accounts("init_registry")]
+#[derive(Accounts)]
+pub struct InitRegistryCallback<'info> {
+    pub arcium_program: Program<'info, Arcium>,
+    #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_INIT_REGISTRY))]
+    pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
+    #[account(address = derive_mxe_pda!())]
+    pub mxe_account: Box<Account<'info, MXEAccount>>,
+    /// CHECK: Verified by Arcium callback handler via SignedComputationOutputs
+    pub computation_account: UncheckedAccount<'info>,
+    #[account(address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+    pub cluster_account: Account<'info, Cluster>,
+    /// CHECK: Validated by address constraint matching Solana instructions sysvar ID
+    #[account(address = ::anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
+    #[account(mut)]
+    pub registry_state: Account<'info, RegistryState>,
+}
+
 // ── Events ──────────────────────────────────────────────────────────────
 
 #[event]
@@ -673,4 +832,5 @@ pub enum ErrorCode {
     Unauthorized,
     #[msg("Arcium cluster not configured on MXE account")]
     ClusterNotSet,
+}
 }
