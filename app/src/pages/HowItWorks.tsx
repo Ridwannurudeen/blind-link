@@ -1,20 +1,21 @@
 import React, { useState, useEffect } from "react";
+import { Shield, Monitor, Lock, ArrowRight, CheckCircle2, Loader2, Play, RotateCcw } from "lucide-react";
 
 type Stage = "idle" | "hash" | "encrypt" | "compute" | "decrypt" | "done";
 
 const STAGES: { key: Stage; label: string; duration: number }[] = [
-  { key: "hash", label: "Local Hash", duration: 1200 },
+  { key: "hash", label: "Hash", duration: 1200 },
   { key: "encrypt", label: "Encrypt", duration: 800 },
-  { key: "compute", label: "MXE Compute", duration: 2000 },
+  { key: "compute", label: "MXE", duration: 2000 },
   { key: "decrypt", label: "Decrypt", duration: 800 },
   { key: "done", label: "Result", duration: 0 },
 ];
 
-const SAMPLE_CONTACTS = ["alice@example.com", "bob@pm.me", "+1-555-0199"];
-const SAMPLE_HASHES = ["a9f3e2...", "7bc41d...", "d0e8f5..."];
-const SAMPLE_CIPHER = ["Enc(0x7a2f...)", "Enc(0x3d1c...)", "Enc(0xe9b4...)"];
-const SAMPLE_SHARES = ["Share_1", "Share_2", "Share_3"];
-const SAMPLE_RESULTS = [
+const CONTACTS = ["alice@example.com", "bob@pm.me", "+1-555-0199"];
+const HASHES = ["a9f3e2...", "7bc41d...", "d0e8f5..."];
+const CIPHER = ["Enc(0x7a2f…)", "Enc(0x3d1c…)", "Enc(0xe9b4…)"];
+const SHARES = ["Share_1", "Share_2", "Share_3"];
+const RESULTS = [
   { contact: "alice@example.com", match: true },
   { contact: "bob@pm.me", match: false },
   { contact: "+1-555-0199", match: true },
@@ -38,195 +39,164 @@ export const HowItWorks: React.FC = () => {
 
   const startDemo = () => { setStageIdx(0); setRunning(true); };
   const reset = () => { setStage("idle"); setStageIdx(-1); setRunning(false); };
-  const stageNum = STAGES.findIndex((s) => s.key === stage);
+  const sn = STAGES.findIndex((s) => s.key === stage);
+
+  const Chip: React.FC<{ text: string; cls: string }> = ({ text, cls }) => (
+    <div className={`px-2.5 py-1 rounded-md text-[11px] font-mono border ${cls}`}>{text}</div>
+  );
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-zinc-100">Protocol</h1>
-        <p className="text-sm text-zinc-500 mt-1">
-          How data transforms through each privacy layer — from plaintext to encrypted MPC and back.
-        </p>
+        <h1 className="text-[18px] font-semibold text-zinc-100">Protocol</h1>
+        <p className="text-[13px] text-zinc-500 mt-0.5">Data transformation through each privacy layer.</p>
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 space-y-6">
-        {/* Stage progress */}
+      <div className="bg-surface border border-border rounded-xl p-5 space-y-6">
+        {/* Progress */}
         <div className="flex items-center gap-1">
-          {STAGES.map((s, i) => {
-            const isComplete = i < stageNum;
-            const isCurrent = i === stageNum;
-            return (
-              <React.Fragment key={s.key}>
-                {i > 0 && <div className={`flex-1 h-px ${isComplete ? "bg-green-500" : "bg-zinc-700"}`} />}
-                <div className="flex flex-col items-center gap-1">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium border transition-colors ${
-                    isComplete ? "bg-green-500/10 border-green-500/30 text-green-400" :
-                    isCurrent ? "bg-blue-500/10 border-blue-500/30 text-blue-400" :
-                    "bg-zinc-800 border-zinc-700 text-zinc-500"
-                  }`}>
-                    {isComplete ? (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
-                    ) : i + 1}
-                  </div>
-                  <span className={`text-[10px] uppercase tracking-wide whitespace-nowrap ${
-                    isCurrent ? "text-blue-400" : isComplete ? "text-green-400" : "text-zinc-600"
-                  }`}>{s.label}</span>
+          {STAGES.map((s, i) => (
+            <React.Fragment key={s.key}>
+              {i > 0 && <div className={`flex-1 h-px ${i < sn ? "bg-green-500/50" : i === sn ? "bg-arcium/50" : "bg-zinc-800"}`} />}
+              <div className="flex flex-col items-center gap-1">
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-medium border transition-all ${
+                  i < sn ? "bg-green-500/10 border-green-500/20 text-green-400" :
+                  i === sn ? "bg-arcium/10 border-arcium/20 text-arcium" :
+                  "bg-zinc-900 border-zinc-800 text-zinc-600"
+                }`}>
+                  {i < sn ? <CheckCircle2 size={13} /> : i + 1}
                 </div>
-              </React.Fragment>
-            );
-          })}
+                <span className={`text-[9px] uppercase tracking-wider font-medium ${
+                  i === sn ? "text-arcium" : i < sn ? "text-green-400/70" : "text-zinc-700"
+                }`}>{s.label}</span>
+              </div>
+            </React.Fragment>
+          ))}
         </div>
 
-        {/* Data flow visualization */}
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-stretch">
-          {/* Your Device */}
-          <div className={`border rounded-lg p-4 transition-colors ${
-            stage === "hash" ? "border-blue-500/30 bg-blue-500/5" : "border-zinc-800 bg-zinc-800/30"
-          }`}>
+        {/* Flow */}
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_40px_1fr] gap-4 items-stretch">
+          <div className={`border rounded-xl p-4 transition-all ${stage === "hash" ? "border-arcium/20 bg-arcium/[0.02]" : "border-border-subtle bg-[#0d0d10]"}`}>
             <div className="flex items-center gap-2 mb-3">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-zinc-400"><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
-              <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Your Device</span>
+              <Monitor size={13} className="text-zinc-500" />
+              <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Your Device</span>
             </div>
-            <div className="space-y-1.5 min-h-[80px]">
-              {stage === "idle" && SAMPLE_CONTACTS.map((c, i) => (
-                <div key={i} className="px-2 py-1 rounded text-xs font-mono bg-red-500/10 text-red-400 border border-red-500/20">{c}</div>
-              ))}
-              {stage === "hash" && SAMPLE_HASHES.map((h, i) => (
-                <div key={i} className="px-2 py-1 rounded text-xs font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20">{h}</div>
-              ))}
-              {(stage === "encrypt" || stage === "compute") && SAMPLE_CIPHER.map((c, i) => (
-                <div key={i} className="px-2 py-1 rounded text-xs font-mono bg-violet-500/10 text-violet-400 border border-violet-500/20">{c}</div>
-              ))}
-              {(stage === "decrypt" || stage === "done") && SAMPLE_RESULTS.map((r, i) => (
-                <div key={i} className={`px-2 py-1 rounded text-xs font-mono border ${
-                  r.match ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-zinc-800 text-zinc-500 border-zinc-700"
-                }`}>{r.contact} {r.match ? "Match" : "No match"}</div>
+            <div className="space-y-1.5 min-h-[90px]">
+              {stage === "idle" && CONTACTS.map((c, i) => <Chip key={i} text={c} cls="bg-red-500/[0.06] text-red-400 border-red-500/15" />)}
+              {stage === "hash" && HASHES.map((h, i) => <Chip key={i} text={h} cls="bg-arcium/[0.06] text-arcium border-arcium/15" />)}
+              {(stage === "encrypt" || stage === "compute") && CIPHER.map((c, i) => <Chip key={i} text={c} cls="bg-blue-500/[0.06] text-blue-400 border-blue-500/15" />)}
+              {(stage === "decrypt" || stage === "done") && RESULTS.map((r, i) => (
+                <Chip key={i} text={`${r.contact} ${r.match ? "Match" : "No match"}`}
+                  cls={r.match ? "bg-green-500/[0.06] text-green-400 border-green-500/15" : "bg-zinc-800/30 text-zinc-600 border-zinc-800"} />
               ))}
             </div>
-            <p className="text-[10px] text-zinc-600 mt-2">
-              {stage === "idle" ? "Plaintext contacts" :
-               stage === "hash" ? "SHA-256 hashes (truncated to u128)" :
-               (stage === "encrypt" || stage === "compute") ? "Rescue cipher encrypted" :
-               "Match flags decrypted locally"}
+            <p className="text-[10px] text-zinc-700 mt-2">
+              {stage === "idle" ? "Plaintext contacts" : stage === "hash" ? "SHA-256 hashes (u128)" :
+               (stage === "encrypt" || stage === "compute") ? "Rescue cipher encrypted" : "Match flags decrypted locally"}
             </p>
           </div>
 
-          {/* Arrow */}
           <div className="hidden md:flex items-center justify-center">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-colors ${
-              ["encrypt", "compute"].includes(stage) ? "text-violet-400" : "text-zinc-700"
-            }`}><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
+            <ArrowRight size={16} className={`transition-colors ${["encrypt", "compute"].includes(stage) ? "text-arcium" : "text-zinc-800"}`} />
           </div>
 
-          {/* Arcium MXE */}
-          <div className={`border rounded-lg p-4 transition-colors ${
-            stage === "compute" ? "border-violet-500/30 bg-violet-500/5" : "border-zinc-800 bg-zinc-800/30"
-          }`}>
+          <div className={`border rounded-xl p-4 transition-all ${stage === "compute" ? "border-arcium/20 bg-arcium/[0.02]" : "border-border-subtle bg-[#0d0d10]"}`}>
             <div className="flex items-center gap-2 mb-3">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-zinc-400"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
-              <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wide">Arcium MXE (3 Nodes)</span>
+              <Lock size={13} className="text-zinc-500" />
+              <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Arcium MXE</span>
             </div>
-            <div className="space-y-1.5 min-h-[80px]">
-              {["idle", "hash", "encrypt"].includes(stage) && (
-                <p className="text-xs text-zinc-600 italic">Waiting for encrypted input...</p>
-              )}
+            <div className="space-y-1.5 min-h-[90px]">
+              {["idle", "hash", "encrypt"].includes(stage) && <p className="text-[11px] text-zinc-700 italic">Waiting for encrypted input...</p>}
               {stage === "compute" && (
                 <div className="grid grid-cols-3 gap-2">
-                  {SAMPLE_SHARES.map((s, i) => (
+                  {SHARES.map((s, i) => (
                     <div key={i} className="text-center">
-                      <p className="text-[10px] text-zinc-500 mb-1">Node {i + 1}</p>
-                      <div className="px-2 py-1 rounded text-xs font-mono bg-violet-500/10 text-violet-400 border border-violet-500/20">{s}</div>
+                      <p className="text-[9px] text-zinc-600 mb-1">Node {i + 1}</p>
+                      <Chip text={s} cls="bg-arcium/[0.06] text-arcium border-arcium/15" />
                     </div>
                   ))}
                 </div>
               )}
-              {(stage === "decrypt" || stage === "done") && (
-                <p className="text-xs text-zinc-600 italic">Computation complete — shares destroyed</p>
-              )}
+              {(stage === "decrypt" || stage === "done") && <p className="text-[11px] text-zinc-700 italic">Complete — shares destroyed</p>}
             </div>
-            <p className="text-[10px] text-zinc-600 mt-2">
-              {stage === "compute" ? "Each node sees only its secret share" : "No single node sees plaintext"}
-            </p>
+            <p className="text-[10px] text-zinc-700 mt-2">{stage === "compute" ? "Each node sees only its share" : "No single node sees plaintext"}</p>
           </div>
         </div>
 
-        {/* Demo button */}
         <div className="text-center">
           {stage === "idle" ? (
-            <button onClick={startDemo} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded transition-colors">
-              Run Flow Demo
+            <button onClick={startDemo} className="inline-flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-arcium hover:bg-arcium/90 rounded-lg transition-colors">
+              <Play size={13} /> Run Demo
             </button>
           ) : stage === "done" ? (
-            <button onClick={reset} className="text-xs text-zinc-400 hover:text-zinc-300 px-3 py-1.5 rounded border border-zinc-700 hover:border-zinc-600 transition-colors">
-              Replay
+            <button onClick={reset} className="inline-flex items-center gap-1.5 text-[12px] text-zinc-500 hover:text-zinc-300 px-3 py-1.5 rounded-md border border-border hover:border-zinc-600 transition-colors">
+              <RotateCcw size={12} /> Replay
             </button>
           ) : (
-            <span className="inline-flex items-center gap-2 text-xs text-zinc-500">
-              <div className="w-3 h-3 border border-zinc-600 border-t-blue-500 rounded-full animate-spin" />
-              Running...
+            <span className="inline-flex items-center gap-2 text-[12px] text-zinc-600">
+              <Loader2 size={13} className="animate-spin text-arcium" /> Running...
             </span>
           )}
         </div>
       </div>
 
-      {/* Privacy Scorecard */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-        <h2 className="text-sm font-semibold text-zinc-200 mb-4">Privacy Scorecard</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-zinc-800">
-                <th className="text-left py-2 pr-4 text-xs font-medium text-zinc-500 uppercase tracking-wide">Party</th>
-                <th className="text-left py-2 pr-4 text-xs font-medium text-zinc-500 uppercase tracking-wide">Visible Data</th>
-                <th className="text-left py-2 text-xs font-medium text-zinc-500 uppercase tracking-wide">Protected</th>
-              </tr>
-            </thead>
-            <tbody className="text-xs">
-              {[
-                { party: "Your Browser", sees: "Contacts before hashing", hidden: "Nothing sent unencrypted" },
-                { party: "MXE Node 1", sees: "Share_1 only", hidden: "Cannot reconstruct data" },
-                { party: "MXE Node 2", sees: "Share_2 only", hidden: "Cannot reconstruct data" },
-                { party: "MXE Node 3", sees: "Share_3 only", hidden: "Cannot reconstruct data" },
-                { party: "On-Chain", sees: "Encrypted ciphertexts", hidden: "Zero plaintext ever", highlight: true },
-              ].map((row, i) => (
-                <tr key={i} className={`border-b border-zinc-800/50 ${row.highlight ? "bg-green-500/5" : ""}`}>
-                  <td className={`py-2.5 pr-4 font-medium ${row.highlight ? "text-green-400" : "text-zinc-300"}`}>{row.party}</td>
-                  <td className="py-2.5 pr-4 text-zinc-400">{row.sees}</td>
-                  <td className="py-2.5 text-zinc-500">{row.hidden}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Privacy scorecard */}
+      <div className="bg-surface border border-border rounded-xl overflow-hidden">
+        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-border-subtle">
+          <Shield size={14} className="text-arcium" />
+          <h2 className="text-[13px] font-semibold text-zinc-200">Privacy Scorecard</h2>
         </div>
-        <p className="text-xs text-zinc-600 mt-3 italic">
-          Cerberus MPC protocol — secure even if N-1 nodes are malicious. Only 1 honest node required.
-        </p>
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-border-subtle">
+              <th className="text-left px-5 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Party</th>
+              <th className="text-left px-5 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Visible</th>
+              <th className="text-left px-5 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Protected</th>
+              <th className="text-left px-5 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider w-16">ZKP</th>
+            </tr>
+          </thead>
+          <tbody className="text-[12px]">
+            {[
+              { party: "Browser", sees: "Contacts before hashing", hidden: "Nothing sent unencrypted" },
+              { party: "Node 1", sees: "Share_1 only", hidden: "Cannot reconstruct" },
+              { party: "Node 2", sees: "Share_2 only", hidden: "Cannot reconstruct" },
+              { party: "Node 3", sees: "Share_3 only", hidden: "Cannot reconstruct" },
+              { party: "On-Chain", sees: "Encrypted ciphertexts", hidden: "Zero plaintext", hl: true },
+            ].map((r, i) => (
+              <tr key={i} className={`table-row-hover border-b border-border-subtle/50 last:border-0 ${r.hl ? "bg-green-500/[0.015]" : ""}`}>
+                <td className={`px-5 py-3 font-medium ${r.hl ? "text-green-400" : "text-zinc-300"}`}>{r.party}</td>
+                <td className="px-5 py-3 text-zinc-500">{r.sees}</td>
+                <td className="px-5 py-3 text-zinc-600">{r.hidden}</td>
+                <td className="px-5 py-3"><Shield size={12} className="text-green-500" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="px-5 py-2.5 border-t border-border-subtle">
+          <p className="text-[10px] text-zinc-600 italic">Cerberus MPC — secure with N-1 malicious nodes. Only 1 honest required.</p>
+        </div>
       </div>
 
       {/* Comparison */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-zinc-900 border border-red-500/15 rounded-lg p-4">
-          <h3 className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-3">Traditional Approach</h3>
-          <ul className="space-y-2 text-xs text-zinc-400">
-            {["Uploads full address book to server", "Server sees all your contacts", "Stored in central database (breach risk)", "\"Trust us\" — no cryptographic proof"].map((item, i) => (
-              <li key={i} className="flex items-start gap-2">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-400 mt-0.5 flex-shrink-0"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="bg-zinc-900 border border-green-500/15 rounded-lg p-4">
-          <h3 className="text-xs font-semibold text-green-400 uppercase tracking-wide mb-3">Blind-Link (Arcium MPC)</h3>
-          <ul className="space-y-2 text-xs text-zinc-400">
-            {["Contacts hashed locally, never uploaded", "No single party sees your data", "Encrypted state on Solana (no honeypot)", "Cerberus MPC — cryptographic proof"].map((item, i) => (
-              <li key={i} className="flex items-start gap-2">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-green-400 mt-0.5 flex-shrink-0"><polyline points="20 6 9 17 4 12" /></svg>
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
+        {[
+          { title: "Traditional", color: "red", items: ["Uploads full address book", "Server sees all contacts", "Central database (breach risk)", "\"Trust us\" — no proof"] },
+          { title: "Blind-Link (MPC)", color: "green", items: ["Hashed locally, never uploaded", "No single party sees data", "Encrypted on Solana", "Cerberus MPC proof"] },
+        ].map((card) => (
+          <div key={card.title} className={`bg-surface border rounded-xl p-4 ${card.color === "red" ? "border-red-500/10" : "border-green-500/10"}`}>
+            <h3 className={`text-[11px] font-semibold uppercase tracking-wider mb-3 ${card.color === "red" ? "text-red-400" : "text-green-400"}`}>{card.title}</h3>
+            <ul className="space-y-2">
+              {card.items.map((item, i) => (
+                <li key={i} className="flex items-start gap-2 text-[12px] text-zinc-400">
+                  {card.color === "red"
+                    ? <span className="text-red-400 mt-0.5 text-[10px]">&#10005;</span>
+                    : <CheckCircle2 size={12} className="text-green-400 mt-0.5 flex-shrink-0" />}
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
     </div>
   );

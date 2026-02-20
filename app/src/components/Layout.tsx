@@ -1,196 +1,252 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { WalletButton } from "./WalletButton";
+import {
+  LayoutDashboard, UserPlus, Search as SearchIcon, Shield, Clock,
+  ChevronLeft, Menu, Command, Activity, Radio,
+} from "lucide-react";
 
-interface NavItem {
-  path: string;
-  label: string;
-  icon: React.ReactNode;
-}
+const NAV = [
+  { path: "/", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/register", label: "Registry", icon: UserPlus },
+  { path: "/discover", label: "Discovery", icon: SearchIcon },
+  { path: "/how-it-works", label: "Protocol", icon: Shield },
+  { path: "/history", label: "History", icon: Clock },
+] as const;
 
-const NAV_ITEMS: NavItem[] = [
-  {
-    path: "/",
-    label: "Dashboard",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
-      </svg>
-    ),
-  },
-  {
-    path: "/register",
-    label: "Registry",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" />
-      </svg>
-    ),
-  },
-  {
-    path: "/discover",
-    label: "Discovery",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-      </svg>
-    ),
-  },
-  {
-    path: "/how-it-works",
-    label: "Protocol",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-      </svg>
-    ),
-  },
-  {
-    path: "/history",
-    label: "History",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-      </svg>
-    ),
-  },
+/* Simulated MXE heartbeats */
+const HEARTBEAT_MSGS = [
+  "MXE node-0 heartbeat OK",
+  "Cerberus share sync #41c2",
+  "Computation queue: idle",
+  "Node-1 attestation verified",
+  "Registry state hash: 7f3a...",
+  "MPC round completed",
+  "Node-2 shard rotated",
 ];
+
+interface Heartbeat { ts: string; msg: string; id: number }
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [heartbeats, setHeartbeats] = useState<Heartbeat[]>([]);
   const location = useLocation();
 
-  const isActive = (path: string) => {
-    if (path === "/") return location.pathname === "/";
-    return location.pathname.startsWith(path);
-  };
+  const isActive = (path: string) =>
+    path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
+
+  const pageName = NAV.find((n) => isActive(n.path))?.label || "Dashboard";
+
+  // Simulate live heartbeats
+  useEffect(() => {
+    let id = 0;
+    const tick = () => {
+      const msg = HEARTBEAT_MSGS[Math.floor(Math.random() * HEARTBEAT_MSGS.length)];
+      const ts = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      setHeartbeats((prev) => [{ ts, msg, id: id++ }, ...prev].slice(0, 6));
+    };
+    tick();
+    const iv = setInterval(tick, 4000 + Math.random() * 3000);
+    return () => clearInterval(iv);
+  }, []);
+
+  // Cmd+K handler
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      e.preventDefault();
+      setSearchOpen((o) => !o);
+    }
+    if (e.key === "Escape") setSearchOpen(false);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-zinc-950">
+    <div className="flex h-screen overflow-hidden bg-[#09090b]">
+      {/* Grain overlay */}
+      <div className="grain-overlay" />
+
+      {/* Cmd+K Modal */}
+      {searchOpen && (
+        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[20vh]">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSearchOpen(false)} />
+          <div className="relative w-full max-w-lg bg-[#121215] border border-[#27272a] rounded-xl shadow-2xl overflow-hidden">
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-[#27272a]">
+              <SearchIcon size={16} className="text-zinc-500" />
+              <input
+                autoFocus
+                type="text"
+                placeholder="Search commands, sessions, addresses..."
+                className="flex-1 bg-transparent text-sm text-zinc-100 placeholder-zinc-600 outline-none"
+              />
+              <kbd className="text-[10px] text-zinc-600 bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">ESC</kbd>
+            </div>
+            <div className="p-2">
+              {NAV.map((n) => (
+                <Link
+                  key={n.path}
+                  to={n.path}
+                  onClick={() => setSearchOpen(false)}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 transition-colors"
+                >
+                  <n.icon size={15} />
+                  <span>{n.label}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mobile overlay */}
       {mobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
       )}
 
       {/* Sidebar */}
-      <aside
-        className={`
-          fixed lg:static inset-y-0 left-0 z-50
-          flex flex-col bg-zinc-900 border-r border-zinc-800
-          transition-all duration-200
-          ${collapsed ? "w-16" : "w-56"}
-          ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
-        `}
-      >
+      <aside className={`
+        fixed lg:static inset-y-0 left-0 z-50 flex flex-col bg-[#09090b] border-r border-[#1f1f23]
+        transition-all duration-200
+        ${collapsed ? "w-[52px]" : "w-[220px]"}
+        ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+      `}>
         {/* Brand */}
-        <div className={`flex items-center h-14 border-b border-zinc-800 ${collapsed ? "justify-center px-2" : "px-4"}`}>
+        <div className={`flex items-center h-[52px] border-b border-[#1f1f23] ${collapsed ? "justify-center px-1" : "px-4"}`}>
           {collapsed ? (
-            <span className="text-blue-500 font-bold text-lg">B</span>
+            <div className="w-7 h-7 rounded-md bg-arcium/10 flex items-center justify-center">
+              <span className="text-arcium font-bold text-xs">B</span>
+            </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-blue-500 font-bold text-base">Blind-Link</span>
-              <span className="text-zinc-600 text-xs">|</span>
-              <a
-                href="https://arcium.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-zinc-500 text-xs hover:text-zinc-300 transition-colors"
-              >
-                Arcium
-              </a>
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-md bg-arcium/10 flex items-center justify-center">
+                <Shield size={14} className="text-arcium" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[13px] font-semibold text-zinc-100 leading-tight">Blind-Link</span>
+                <span className="text-[10px] text-zinc-600 leading-tight">by Arcium</span>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Nav items */}
-        <nav className="flex-1 py-3 overflow-y-auto">
-          {NAV_ITEMS.map((item) => (
+        {/* Nav */}
+        <nav className="flex-1 py-2 px-1.5 overflow-y-auto">
+          <div className={`mb-2 ${collapsed ? "hidden" : ""}`}>
+            <span className="px-2.5 text-[10px] font-medium text-zinc-600 uppercase tracking-wider">Navigation</span>
+          </div>
+          {NAV.map((item) => (
             <Link
               key={item.path}
               to={item.path}
               onClick={() => setMobileOpen(false)}
               className={`
-                flex items-center gap-3 mx-2 px-3 py-2 rounded-md text-sm font-medium
-                transition-colors duration-150
+                flex items-center gap-2.5 px-2.5 py-[7px] rounded-md text-[13px] font-medium mb-0.5
+                transition-colors duration-100
                 ${isActive(item.path)
-                  ? "bg-blue-500/10 text-blue-400"
-                  : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+                  ? "bg-arcium/8 text-arcium"
+                  : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40"
                 }
-                ${collapsed ? "justify-center" : ""}
+                ${collapsed ? "justify-center px-0" : ""}
               `}
               title={collapsed ? item.label : undefined}
             >
-              <span className="flex-shrink-0">{item.icon}</span>
+              <item.icon size={16} className="flex-shrink-0" />
               {!collapsed && <span>{item.label}</span>}
             </Link>
           ))}
         </nav>
 
-        {/* Sidebar footer */}
-        <div className={`border-t border-zinc-800 py-3 ${collapsed ? "px-2" : "px-4"}`}>
-          {/* MXE Status */}
-          <div className={`flex items-center gap-2 mb-3 ${collapsed ? "justify-center" : ""}`}>
-            <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
-            {!collapsed && (
-              <span className="text-xs text-zinc-500">MXE Offline</span>
-            )}
+        {/* Live Computation Stream */}
+        {!collapsed && (
+          <div className="px-2 pb-2">
+            <div className="bg-[#121215] border border-[#1f1f23] rounded-lg p-2.5">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Activity size={11} className="text-arcium" />
+                <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">MXE Stream</span>
+                <Radio size={8} className="text-green-500 pulse-dot ml-auto" />
+              </div>
+              <div className="space-y-1 max-h-[120px] overflow-hidden">
+                {heartbeats.map((hb) => (
+                  <div key={hb.id} className="stream-entry flex items-start gap-1.5">
+                    <span className="text-[9px] text-zinc-700 font-mono whitespace-nowrap mt-px">{hb.ts}</span>
+                    <span className="text-[10px] text-zinc-500 leading-tight">{hb.msg}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
+        )}
 
-          {/* Collapse toggle */}
+        {/* Bottom */}
+        <div className={`border-t border-[#1f1f23] py-2 ${collapsed ? "px-1" : "px-2"}`}>
+          {/* MXE Status */}
+          <div className={`flex items-center gap-2 px-2 py-1.5 ${collapsed ? "justify-center" : ""}`}>
+            <span className="w-[6px] h-[6px] rounded-full bg-amber-500 pulse-dot flex-shrink-0" />
+            {!collapsed && <span className="text-[11px] text-zinc-600">MXE Offline</span>}
+          </div>
+          {/* Collapse */}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="hidden lg:flex items-center justify-center w-full py-1.5 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 rounded transition-colors"
+            className="hidden lg:flex items-center justify-center w-full py-1.5 mt-1 text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800/40 rounded-md transition-colors"
           >
-            <svg
-              width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-              className={`transition-transform duration-200 ${collapsed ? "rotate-180" : ""}`}
-            >
-              <polyline points="11 17 6 12 11 7" /><polyline points="18 17 13 12 18 7" />
-            </svg>
+            <ChevronLeft size={14} className={`transition-transform duration-200 ${collapsed ? "rotate-180" : ""}`} />
           </button>
         </div>
       </aside>
 
-      {/* Main area */}
+      {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Header */}
-        <header className="flex items-center justify-between h-14 px-4 lg:px-6 border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-sm flex-shrink-0">
-          {/* Mobile hamburger */}
-          <button
-            onClick={() => setMobileOpen(true)}
-            className="lg:hidden p-1.5 text-zinc-400 hover:text-zinc-200 rounded"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
-
-          {/* Breadcrumb */}
-          <div className="hidden lg:flex items-center gap-2 text-sm">
-            <span className="text-zinc-500">Blind-Link</span>
-            <span className="text-zinc-700">/</span>
-            <span className="text-zinc-300">
-              {NAV_ITEMS.find((n) => isActive(n.path))?.label || "Dashboard"}
-            </span>
+        {/* Topbar */}
+        <header className="flex items-center justify-between h-[52px] px-4 lg:px-6 border-b border-[#1f1f23] bg-[#09090b]/80 backdrop-blur-md flex-shrink-0">
+          <div className="flex items-center gap-4">
+            {/* Mobile hamburger */}
+            <button onClick={() => setMobileOpen(true)} className="lg:hidden p-1 text-zinc-500 hover:text-zinc-300">
+              <Menu size={18} />
+            </button>
+            {/* Breadcrumb */}
+            <div className="hidden lg:flex items-center gap-1.5 text-[13px]">
+              <span className="text-zinc-600">Blind-Link</span>
+              <span className="text-zinc-700">/</span>
+              <span className="text-zinc-300 font-medium">{pageName}</span>
+            </div>
           </div>
 
-          {/* Right side */}
           <div className="flex items-center gap-3">
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium bg-violet-500/10 text-violet-400 border border-violet-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
-              Devnet
-            </span>
+            {/* Search trigger */}
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="search-trigger hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-md border border-[#27272a] bg-[#121215] text-[12px] text-zinc-500"
+            >
+              <SearchIcon size={13} />
+              <span>Search...</span>
+              <div className="flex items-center gap-0.5 ml-4">
+                <kbd className="text-[10px] text-zinc-600 bg-zinc-800 px-1 py-0.5 rounded border border-zinc-700">
+                  <Command size={9} className="inline" />
+                </kbd>
+                <kbd className="text-[10px] text-zinc-600 bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-700">K</kbd>
+              </div>
+            </button>
+
+            {/* Network toggle */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-[#27272a] bg-[#121215]">
+              <span className="w-[6px] h-[6px] rounded-full bg-arcium pulse-dot" />
+              <span className="text-[11px] font-medium text-zinc-400">Devnet</span>
+            </div>
+
             <WalletButton />
           </div>
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-          {children}
+        <main className="flex-1 overflow-y-auto mesh-bg">
+          <div className="p-4 lg:p-6 max-w-[1400px] mx-auto">
+            {children}
+          </div>
         </main>
       </div>
     </div>
