@@ -7,7 +7,7 @@
 //   Step 3 — Result Reveal:  Matched contacts list with invite actions
 // ============================================================================
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { BlindLinkClient, PsiResult, OnboardingCallbacks } from "../services/blind-link-client";
 
 // ── Types ───────────────────────────────────────────────────────────────
@@ -17,6 +17,8 @@ type OnboardingStep = "idle" | "hashing" | "computing" | "revealing" | "complete
 interface BlindOnboardingProps {
   client: BlindLinkClient;
   contacts: string[];
+  /** Demo mode: list of pre-registered users for local PSI simulation */
+  demoRegisteredUsers?: string[];
   onComplete?: (result: PsiResult) => void;
   onError?: (error: Error) => void;
 }
@@ -26,6 +28,8 @@ interface StepState {
   hashProgress: { processed: number; total: number };
   result: PsiResult | null;
   error: string | null;
+  demoMode: boolean;
+  mxeChecked: boolean;
 }
 
 // ── Component ───────────────────────────────────────────────────────────
@@ -33,6 +37,7 @@ interface StepState {
 export const BlindOnboarding: React.FC<BlindOnboardingProps> = ({
   client,
   contacts,
+  demoRegisteredUsers,
   onComplete,
   onError,
 }) => {
@@ -41,7 +46,16 @@ export const BlindOnboarding: React.FC<BlindOnboardingProps> = ({
     hashProgress: { processed: 0, total: 0 },
     result: null,
     error: null,
+    demoMode: false,
+    mxeChecked: false,
   });
+
+  // Auto-detect MXE availability on mount
+  useEffect(() => {
+    client.isMxeAvailable().then((available) => {
+      setState((s) => ({ ...s, demoMode: !available, mxeChecked: true }));
+    });
+  }, [client]);
 
   const startOnboarding = useCallback(async () => {
     setState((s) => ({ ...s, step: "hashing", error: null }));
@@ -72,7 +86,17 @@ export const BlindOnboarding: React.FC<BlindOnboardingProps> = ({
     };
 
     try {
-      const result = await client.blindOnboard(contacts, callbacks);
+      let result: PsiResult;
+      if (state.demoMode) {
+        // Demo mode: local PSI with real hash-based intersection
+        const demoUsers = demoRegisteredUsers || [
+          "alice@example.com", "bob@example.com", "carol@example.com",
+          "dave@example.com", "eve@example.com",
+        ];
+        result = await client.blindOnboardDemo(contacts, demoUsers, callbacks);
+      } else {
+        result = await client.blindOnboard(contacts, callbacks);
+      }
       setState((s) => ({ ...s, step: "complete", result }));
       onComplete?.(result);
     } catch (err) {
@@ -80,7 +104,7 @@ export const BlindOnboarding: React.FC<BlindOnboardingProps> = ({
       setState((s) => ({ ...s, step: "error", error: error.message }));
       onError?.(error);
     }
-  }, [client, contacts, onComplete, onError]);
+  }, [client, contacts, demoRegisteredUsers, state.demoMode, onComplete, onError]);
 
   const progressPercent =
     state.hashProgress.total > 0
@@ -96,6 +120,15 @@ export const BlindOnboarding: React.FC<BlindOnboardingProps> = ({
         Your address book never leaves your device. Only encrypted hashes are
         compared inside Arcium's secure computation network.
       </p>
+
+      {/* Demo Mode Banner */}
+      {state.mxeChecked && state.demoMode && (
+        <div className="demo-banner">
+          <strong>Demo Mode</strong> — Arcium MXE cluster is offline. Running local
+          PSI simulation with real SHA-256 hash matching. In production, this
+          computation runs inside Arcium's MPC network for full privacy.
+        </div>
+      )}
 
       {/* Step Indicator */}
       <div className="steps">
@@ -203,15 +236,23 @@ export const BlindOnboarding: React.FC<BlindOnboardingProps> = ({
               </p>
             )}
 
+            {state.result.demoMode && (
+              <p className="demo-note">
+                Demo mode result — in production, this intersection runs
+                privately inside Arcium's MPC network.
+              </p>
+            )}
+
             <button
               className="btn-primary"
               onClick={() =>
-                setState({
-                  step: "idle",
+                setState((s) => ({
+                  ...s,
+                  step: "idle" as const,
                   hashProgress: { processed: 0, total: 0 },
                   result: null,
                   error: null,
-                })
+                }))
               }
             >
               Done

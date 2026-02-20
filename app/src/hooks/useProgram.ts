@@ -20,7 +20,6 @@ export function useProgram(): anchor.Program | null {
       commitment: "confirmed",
     });
 
-    // Anchor 0.30+ uses IDL with embedded address
     const fullIdl = { ...idl, address: PROGRAM_ID } as unknown as anchor.Idl;
 
     return new anchor.Program(fullIdl, provider);

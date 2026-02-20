@@ -71,9 +71,11 @@ Anchor program managing the MXE session lifecycle:
 
 | Component | File | Role |
 |---|---|---|
-| Register | `pages/Register.tsx` | User registration flow with wallet connection |
+| Register | `pages/Register.tsx` | User registration with demo mode fallback |
 | Discovery | `pages/Discovery.tsx` | Contact input and PSI result display |
-| Contact Input | `components/ContactInput.tsx` | Contact list entry with validation |
+| How It Works | `pages/HowItWorks.tsx` | Animated 5-stage MPC flow visualization |
+| History | `pages/History.tsx` | On-chain session history with Solana Explorer links |
+| Contact Input | `components/ContactInput.tsx` | Smart contact parsing with type detection & normalization |
 | Program Hook | `hooks/useProgram.ts` | Anchor program initialization via `@arcium-hq/client` |
 
 **Onboarding Flow:**
@@ -177,8 +179,8 @@ blind-link/
 ├── programs/blind_link/src/
 │   └── lib.rs                        # Anchor program (session lifecycle + proof verification)
 ├── app/src/
-│   ├── pages/                        # Landing, Register, Discovery pages
-│   ├── components/                   # ContactInput, Navbar, WalletButton
+│   ├── pages/                        # Landing, Register, Discovery, HowItWorks, History
+│   ├── components/                   # ContactInput, Navbar, WalletButton, BlindOnboarding
 │   ├── hooks/useProgram.ts           # Anchor provider + program init
 │   └── config.ts                     # Program ID + cluster config
 ├── tests/
@@ -224,7 +226,7 @@ The Delegated PSI pattern generalizes beyond contact discovery:
 |---|---|---|
 | **Innovation** | First Delegated PSI on Arcium MXE; solves Web3 social onboarding privacy barrier | README "The Problem" section |
 | **Technical Quality** | Dishonest-majority MPC, constant-time circuit, deterministic hashing for correctness, capacity overflow protection | `encrypted-ixs/src/lib.rs` lines 68-154 |
-| **UX** | 3-step visual flow, Web Worker non-blocking hash, accurate contact count display, clear error messages | `app/src/components/BlindOnboarding.tsx` |
+| **UX** | Animated 5-stage MPC flow, smart contact normalization, on-chain session history, demo mode fallback | `app/src/pages/HowItWorks.tsx`, `app/src/components/ContactInput.tsx`, `app/src/pages/History.tsx` |
 | **Impact** | Generalizes to dating apps, professional networking, marketplace matching | README "Use Cases" section |
 | **Clarity** | Comprehensive docs with security model, "What Each Party Learns" table, setup instructions | This README |
 
@@ -271,7 +273,7 @@ cd ../.. && arcium test --cluster devnet
 
 ### Judge Evaluation Notes
 
-- **Demo availability**: Live frontend deployable to Vercel; requires devnet SOL for transactions
+- **Demo availability**: Live at https://app-six-xi-40.vercel.app — auto-detects MXE availability, falls back to local PSI demo with real SHA-256 hash matching when MXE cluster is offline
 - **Code cleanliness**: All `TODO`/`FIXME` removed, ESLint passing, consistent naming conventions
 - **Documentation accuracy**: All capacity/bucket numbers align with circuit constants; no unsubstantiated security claims
 - **Test coverage**: Integration tests verify full flow (init → register → intersect → reveal); see `tests/blind_link.ts`

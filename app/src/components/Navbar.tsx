@@ -47,6 +47,18 @@ export const Navbar: React.FC = () => {
         >
           Discover
         </Link>
+        <Link
+          to="/how-it-works"
+          className={`nav-link ${location.pathname === "/how-it-works" ? "active" : ""}`}
+        >
+          How It Works
+        </Link>
+        <Link
+          to="/history"
+          className={`nav-link ${location.pathname === "/history" ? "active" : ""}`}
+        >
+          History
+        </Link>
       </div>
       <WalletButton />
     </nav>

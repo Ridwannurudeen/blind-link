@@ -59,6 +59,8 @@ export interface PsiResult {
   matchCount: number;
   /** Computation transaction signature */
   txSignature: string;
+  /** Whether this result was computed in demo mode (local simulation) */
+  demoMode?: boolean;
 }
 
 // ── Constants ───────────────────────────────────────────────────────────
@@ -375,6 +377,76 @@ export class BlindLinkClient {
     } catch (error) {
       const err =
         error instanceof Error ? error : new Error(String(error));
+      callbacks?.onError?.(err);
+      throw err;
+    }
+  }
+
+  // ── Demo Mode (Local PSI Fallback) ─────────────────────────────────
+
+  /**
+   * Check if the MXE cluster is available for computation.
+   * Returns false if MXE keys can't be retrieved (cluster offline).
+   */
+  async isMxeAvailable(): Promise<boolean> {
+    // Arcium devnet MXE cluster nodes are currently offline.
+    // Keys are set on-chain but no nodes are processing computations.
+    // Force demo mode until the cluster is operational again.
+    return false;
+  }
+
+  /**
+   * Demo mode: perform PSI locally using the same SHA-256 hash logic.
+   * Simulates what the MXE circuit does but without privacy guarantees.
+   * Used when the Arcium devnet cluster is offline.
+   */
+  async blindOnboardDemo(
+    contacts: string[],
+    registeredUsers: string[],
+    callbacks?: OnboardingCallbacks
+  ): Promise<PsiResult> {
+    try {
+      // Step 1: Hash contacts (same as production — uses Web Worker)
+      const { hashes } = await this.hashContacts(contacts, callbacks);
+
+      callbacks?.onComputeStart?.();
+
+      // Step 2: Hash registered users with the same algorithm
+      const registeredHashes = new Set<string>();
+      for (const user of registeredUsers) {
+        const data = new TextEncoder().encode(user.trim().toLowerCase());
+        const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+        const arr = new Uint8Array(hashBuffer);
+        let h = BigInt(0);
+        for (let i = 0; i < 16; i++) {
+          h |= BigInt(arr[i]) << BigInt(i * 8);
+        }
+        registeredHashes.add(h.toString(16).padStart(32, "0"));
+      }
+
+      // Simulate computation delay (1.5s)
+      await new Promise((r) => setTimeout(r, 1500));
+      callbacks?.onComputeComplete?.();
+
+      // Step 3: Local intersection
+      const matchedContacts: string[] = [];
+      for (let i = 0; i < hashes.length; i++) {
+        if (registeredHashes.has(hashes[i])) {
+          matchedContacts.push(contacts[i]);
+        }
+      }
+
+      callbacks?.onReveal?.(matchedContacts);
+
+      return {
+        matchedContacts,
+        totalChecked: contacts.length,
+        matchCount: matchedContacts.length,
+        txSignature: "demo-mode-local-computation",
+        demoMode: true,
+      };
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
       callbacks?.onError?.(err);
       throw err;
     }

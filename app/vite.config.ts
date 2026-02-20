@@ -10,13 +10,14 @@ export default defineConfig({
       overrides: {
         fs: "memfs",
       },
+      protocolImports: true,
     }),
   ],
   server: { port: 3000 },
   define: {
     "process.version": JSON.stringify("v18.0.0"),
     "process.browser": true,
-    "process.env": "{}",
+    "process.env": JSON.stringify({}),
   },
   worker: {
     format: "es",
@@ -26,6 +27,24 @@ export default defineConfig({
       define: {
         global: "globalThis",
       },
+    },
+  },
+  build: {
+    rollupOptions: {
+      plugins: [
+        {
+          name: "cjs-shims",
+          renderChunk(code) {
+            return {
+              code: `if(typeof exports==="undefined"){var exports={};}if(typeof module==="undefined"){var module={exports:exports};};\n${code}`,
+              map: null,
+            };
+          },
+        },
+      ],
+    },
+    commonjsOptions: {
+      transformMixedEsModules: true,
     },
   },
 });

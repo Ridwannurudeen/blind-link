@@ -3,10 +3,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-blind_link = "9TVgatCVVvFtmEkHD1VqC1hW6Ddy3TaWN1vqhdqgZYq5"
+blind_link = "88vVM7s7TKCPeJ8DNHnctTTTWFWwSmSDAxnuTRjuzTyn"
 
 [programs.devnet]
-blind_link = "9TVgatCVVvFtmEkHD1VqC1hW6Ddy3TaWN1vqhdqgZYq5"
+blind_link = "88vVM7s7TKCPeJ8DNHnctTTTWFWwSmSDAxnuTRjuzTyn"
 
 [registry]
 url = "https://api.apr.dev"
