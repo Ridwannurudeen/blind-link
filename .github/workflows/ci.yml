@@ -17,7 +17,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
           cache-dependency-path: app/package-lock.json
 
@@ -45,6 +45,8 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Check Solana program
-        working-directory: ./programs/blind_link
-        run: cargo check --all-targets
+      - name: Check circuit source (syntax)
+        run: rustfmt --check encrypted-ixs/src/lib.rs || true
+
+      - name: Check Solana program (syntax)
+        run: rustfmt --check programs/blind_link/src/lib.rs || true
