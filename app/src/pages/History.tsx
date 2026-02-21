@@ -1,25 +1,33 @@
 import React, { useState, useEffect } from "react";
-import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useConnection } from "@solana/wallet-adapter-react";
+import { Link } from "react-router-dom";
 import { useProgram } from "../hooks/useProgram";
 import { PROGRAM_ID } from "../config";
 import * as anchor from "@coral-xyz/anchor";
-import { Clock, Lock, Shield, ExternalLink, Loader2, ArrowUpDown, Link2, CheckCircle2 } from "lucide-react";
 
 interface SessionRecord {
-  pubkey: string; user: string; status: string;
-  computationOffset: string; createdAt: string; matchCount: number | null;
+  pubkey: string;
+  user: string;
+  status: string;
+  computationOffset: string;
+  createdAt: string;
+  matchCount: number | null;
 }
 
-const STATUS_MAP: Record<number, string> = { 0: "Pending", 1: "Computing", 2: "Completed", 3: "Failed" };
-
-const STATUS_BADGES: Record<string, { cls: string; dot: string; detail: string }> = {
-  Pending: { cls: "bg-zinc-800/50 text-zinc-400 border-zinc-700", dot: "bg-zinc-500", detail: "" },
-  Computing: { cls: "bg-arcium/8 text-arcium border-arcium/15", dot: "bg-arcium pulse-dot", detail: "MPC-Active" },
-  Completed: { cls: "bg-green-500/8 text-green-400 border-green-500/15", dot: "bg-green-500", detail: "ZKP-Verified" },
-  Failed: { cls: "bg-red-500/8 text-red-400 border-red-500/15", dot: "bg-red-500", detail: "" },
+const STATUS_MAP: Record<number, string> = {
+  0: "Pending",
+  1: "Computing",
+  2: "Completed",
+  3: "Failed",
 };
 
-type SortKey = "status" | "createdAt" | "computationOffset";
+const STATUS_COLORS: Record<string, string> = {
+  Pending: "var(--text-muted)",
+  Computing: "var(--primary)",
+  Completed: "var(--success)",
+  Failed: "var(--error)",
+};
 
 export const History: React.FC = () => {
   const { connected, publicKey } = useWallet();
@@ -27,172 +35,183 @@ export const History: React.FC = () => {
   const program = useProgram();
   const [sessions, setSessions] = useState<SessionRecord[]>([]);
   const [loading, setLoading] = useState(false);
-  const [sortKey, setSortKey] = useState<SortKey>("createdAt");
-  const [sortAsc, setSortAsc] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!connected || !publicKey || !program) return;
+
     const fetchSessions = async () => {
       setLoading(true);
+      setError("");
       try {
         const programId = new anchor.web3.PublicKey(PROGRAM_ID);
         const discriminator = [71, 200, 15, 146, 51, 222, 140, 8];
+
         const accounts = await connection.getProgramAccounts(programId, {
           filters: [
             { memcmp: { offset: 0, bytes: anchor.utils.bytes.bs58.encode(Buffer.from(discriminator)) } },
             { memcmp: { offset: 9, bytes: publicKey.toBase58() } },
           ],
         });
+
         const records: SessionRecord[] = accounts.map((acc) => {
           const data = acc.account.data;
           const offset = new anchor.BN(data.slice(41, 49), "le").toString();
+
           return {
-            pubkey: acc.pubkey.toBase58(), user: publicKey.toBase58(),
-            status: "Completed", computationOffset: offset,
-            createdAt: new Date().toLocaleDateString(), matchCount: null,
+            pubkey: acc.pubkey.toBase58(),
+            user: publicKey.toBase58(),
+            status: "Completed",
+            computationOffset: offset,
+            createdAt: new Date().toLocaleDateString(),
+            matchCount: null,
           };
         });
+
         setSessions(records);
-      } catch { setSessions([]); }
+      } catch {
+        setSessions([]);
+      }
       setLoading(false);
     };
+
     fetchSessions();
   }, [connected, publicKey, connection, program]);
 
-  const handleSort = (key: SortKey) => {
-    if (sortKey === key) setSortAsc(!sortAsc);
-    else { setSortKey(key); setSortAsc(true); }
-  };
-
-  const sorted = [...sessions].sort((a, b) => {
-    const dir = sortAsc ? 1 : -1;
-    if (sortKey === "computationOffset") return dir * (Number(a.computationOffset) - Number(b.computationOffset));
-    return dir * a[sortKey].localeCompare(b[sortKey]);
-  });
-
   if (!connected) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-surface border border-border rounded-xl p-8 text-center">
-          <Lock size={20} className="text-zinc-600 mx-auto mb-3" />
-          <h2 className="text-[15px] font-semibold text-zinc-200 mb-1">Session History</h2>
-          <p className="text-[13px] text-zinc-500">Connect your wallet to view history.</p>
+      <div className="page-container">
+        <div className="card">
+          <div className="empty-state">
+            <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔒</div>
+            <h2>Session History</h2>
+            <p>
+              Connect your wallet to view your on-chain discovery sessions.
+              Each session is a cryptographic proof that computation ran privately.
+            </p>
+            <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "0.75rem" }}>
+              Sessions from demo mode run locally and are not recorded on-chain.
+              Connect a wallet and use the privacy network for verifiable results.
+            </p>
+            <Link to="/discover" className="btn-secondary" style={{ marginTop: "1rem", display: "inline-block" }}>
+              Try Discovery Demo
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
-  const SortTh: React.FC<{ label: string; field: SortKey }> = ({ label, field }) => (
-    <th onClick={() => handleSort(field)}
-      className="text-left px-5 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider cursor-pointer hover:text-zinc-400 transition-colors select-none">
-      <span className="inline-flex items-center gap-1">
-        {label}
-        <ArrowUpDown size={10} className={sortKey === field ? "text-arcium" : "text-zinc-800"} />
-      </span>
-    </th>
-  );
-
   return (
-    <div className="max-w-5xl mx-auto space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-[18px] font-semibold text-zinc-100">Session History</h1>
-          <p className="text-[13px] text-zinc-500 mt-0.5">On-chain PSI computation records.</p>
-        </div>
-        <span className="text-[11px] text-zinc-600">{sessions.length} session{sessions.length !== 1 ? "s" : ""}</span>
-      </div>
+    <div className="page-container">
+      <div className="card">
+        <h2>Session History</h2>
+        <p className="subtitle">
+          Your private discovery sessions — each one verified on-chain.
+          Every session is a cryptographic proof that computation ran privately.
+        </p>
 
-      <div className="bg-surface border border-border rounded-xl overflow-hidden">
         {loading && (
-          <div className="flex items-center justify-center py-16 gap-3">
-            <Loader2 size={18} className="text-arcium animate-spin" />
-            <span className="text-[13px] text-zinc-500">Querying on-chain sessions...</span>
+          <div className="history-loading">
+            <div className="privacy-loader" style={{ transform: "scale(0.6)" }}>
+              <div className="privacy-fog" />
+              <div className="privacy-shield">🔍</div>
+            </div>
+            <p>Querying on-chain sessions...</p>
           </div>
         )}
+
+        {error && <p className="error-message">{error}</p>}
 
         {!loading && sessions.length === 0 && (
-          <div className="text-center py-16 px-6">
-            <Clock size={28} className="text-zinc-800 mx-auto mb-3" />
-            <h3 className="text-[13px] font-medium text-zinc-400 mb-1">No sessions yet</h3>
-            <p className="text-[12px] text-zinc-600 max-w-sm mx-auto">
-              Run a discovery or register to create your first on-chain session.
+          <div className="empty-state">
+            <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>📋</div>
+            <h3>No sessions yet</h3>
+            <p>
+              Run a contact discovery to create your first on-chain session.
+              Each session is permanently recorded as a verifiable computation proof.
             </p>
-            <div className="mt-4 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/[0.04] border border-amber-500/10">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-              <span className="text-[11px] text-amber-400/80">Demo sessions are local-only.</span>
+            <Link to="/discover" className="btn-primary" style={{ marginTop: "1rem", display: "inline-block" }}>
+              Start Your First Discovery
+            </Link>
+            <div className="history-demo-note" style={{ marginTop: "1rem" }}>
+              <strong>Note:</strong> Sessions created in demo mode run
+              locally and are not recorded on-chain. When the privacy network
+              is online, all computations are verified and stored on Solana.
             </div>
           </div>
         )}
 
-        {sorted.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border-subtle">
-                  <th className="text-left px-5 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Session</th>
-                  <SortTh label="Status" field="status" />
-                  <SortTh label="Computation" field="computationOffset" />
-                  <SortTh label="Date" field="createdAt" />
-                  <th className="text-left px-5 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Proof</th>
-                  <th className="text-left px-5 py-2.5 text-[11px] font-medium text-zinc-600 uppercase tracking-wider">Explorer</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((s, i) => {
-                  const badge = STATUS_BADGES[s.status] || STATUS_BADGES.Pending;
-                  return (
-                    <tr key={i} className="table-row-hover border-b border-border-subtle/50 last:border-0">
-                      <td className="px-5 py-3.5 font-mono text-[11px] text-zinc-500">
-                        {s.pubkey.slice(0, 6)}...{s.pubkey.slice(-4)}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border ${badge.cls}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
-                          {s.status} {badge.detail && <span className="text-[9px] opacity-70">{badge.detail}</span>}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5 font-mono text-[11px] text-zinc-500">#{s.computationOffset}</td>
-                      <td className="px-5 py-3.5 text-[11px] text-zinc-600">{s.createdAt}</td>
-                      <td className="px-5 py-3.5">
-                        <Shield size={13} className="text-green-500" />
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <a href={`https://explorer.solana.com/address/${s.pubkey}?cluster=devnet`} target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300">
-                          View <ExternalLink size={10} />
-                        </a>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        {sessions.length > 0 && (
+          <div className="history-list">
+            {sessions.map((s, i) => (
+              <div key={i} className="history-item">
+                <div className="history-item-header">
+                  <span
+                    className="history-status"
+                    style={{ color: STATUS_COLORS[s.status] || "var(--text)" }}
+                  >
+                    ● {s.status}
+                  </span>
+                  <span className="history-date">{s.createdAt}</span>
+                </div>
+                <div className="history-item-body">
+                  <div className="history-field">
+                    <span className="history-label">Session</span>
+                    <span className="history-value">
+                      {s.pubkey.slice(0, 8)}...{s.pubkey.slice(-6)}
+                    </span>
+                  </div>
+                  <div className="history-field">
+                    <span className="history-label">Computation</span>
+                    <span className="history-value">#{s.computationOffset}</span>
+                  </div>
+                  {s.matchCount !== null && (
+                    <div className="history-field">
+                      <span className="history-label">Matches</span>
+                      <span className="history-value">{s.matchCount}</span>
+                    </div>
+                  )}
+                </div>
+                <a
+                  href={`https://explorer.solana.com/address/${s.pubkey}?cluster=devnet`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="history-explorer-link"
+                >
+                  View on Explorer →
+                </a>
+              </div>
+            ))}
           </div>
         )}
-      </div>
 
-      {/* Verification */}
-      <div className="bg-surface border border-border rounded-xl p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Shield size={14} className="text-arcium" />
-          <h2 className="text-[13px] font-semibold text-zinc-200">On-Chain Verification</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[
-            { icon: Link2, title: "Immutable Record", desc: "Every PSI computation recorded as a Solana transaction." },
-            { icon: CheckCircle2, title: "Cluster Signature", desc: "Results signed by MXE cluster — tamper-proof." },
-            { icon: Shield, title: "Zero Knowledge", desc: "Proofs verify correctness without revealing data." },
-          ].map((item, i) => (
-            <div key={i} className="flex gap-3">
-              <div className="w-8 h-8 rounded-lg bg-zinc-800/50 flex items-center justify-center flex-shrink-0">
-                <item.icon size={14} className="text-zinc-500" />
-              </div>
+        {/* Proof Verification Info */}
+        <div className="history-proof-info">
+          <h3>On-Chain Verification</h3>
+          <div className="history-proof-grid">
+            <div className="history-proof-item">
+              <span className="history-proof-icon">🔗</span>
               <div>
-                <p className="text-[12px] font-medium text-zinc-300">{item.title}</p>
-                <p className="text-[11px] text-zinc-600 mt-0.5">{item.desc}</p>
+                <strong>Immutable Record</strong>
+                <p>Every discovery is recorded as a Solana transaction with verifiable proofs.</p>
               </div>
             </div>
-          ))}
+            <div className="history-proof-item">
+              <span className="history-proof-icon">✅</span>
+              <div>
+                <strong>Privacy Network Signature</strong>
+                <p>Results are signed by the privacy network — tamper-proof computation verification.</p>
+              </div>
+            </div>
+            <div className="history-proof-item">
+              <span className="history-proof-icon">🔒</span>
+              <div>
+                <strong>Zero Knowledge</strong>
+                <p>Proofs verify computation correctness without revealing any contact data.</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

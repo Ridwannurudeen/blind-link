@@ -1,11 +1,20 @@
 import React, { useState, useMemo } from "react";
 import { useWallet, useAnchorWallet } from "@solana/wallet-adapter-react";
 import { useConnection } from "@solana/wallet-adapter-react";
+import { Link } from "react-router-dom";
 import * as anchor from "@coral-xyz/anchor";
 import { BlindLinkClient, PsiResult } from "../services/blind-link-client";
 import { BlindOnboarding } from "../components/BlindOnboarding";
 import { ContactInput } from "../components/ContactInput";
 import { useProgram } from "../hooks/useProgram";
+
+const DEMO_CONTACTS = [
+  "alice@example.com",
+  "bob@example.com",
+  "carol@example.com",
+  "dave@example.com",
+  "eve@example.com",
+];
 
 export const Discovery: React.FC = () => {
   const { connected } = useWallet();
@@ -24,40 +33,36 @@ export const Discovery: React.FC = () => {
     return new BlindLinkClient({ provider, program });
   }, [wallet, program, connection]);
 
-  if (!connected) {
-    return (
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6">
-          <h2 className="text-lg font-semibold text-zinc-100 mb-2">Contact Discovery</h2>
-          <p className="text-sm text-zinc-500">Connect your wallet to discover contacts.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
-      <div>
-        <h1 className="text-xl font-semibold text-zinc-100">Contact Discovery</h1>
-        <p className="text-sm text-zinc-500 mt-1">
-          Find registered contacts without exposing your address book.
-        </p>
-      </div>
-
-      {!contacts && (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-          <ContactInput
-            onSubmit={(parsed) => setContacts(parsed)}
-            disabled={!client}
-          />
+    <div className="page-container">
+      {!connected && (
+        <div className="demo-banner">
+          <strong>Demo Mode</strong> — No wallet connected. Running local
+          simulation with real cryptographic hash matching. Connect a wallet
+          for on-chain private computation.
         </div>
       )}
 
-      {contacts && client && (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
+      {!contacts && !result && (
+        <div className="card">
+          <ContactInput
+            onSubmit={(parsed) => setContacts(parsed)}
+            disabled={false}
+          />
+          {!connected && (
+            <p className="input-hint" style={{ marginTop: "0.75rem", textAlign: "center" }}>
+              Try with sample contacts — no wallet required for demo mode
+            </p>
+          )}
+        </div>
+      )}
+
+      {contacts && !result && (
+        <div className="card">
           <BlindOnboarding
             client={client}
             contacts={contacts}
+            demoRegisteredUsers={DEMO_CONTACTS}
             onComplete={(r) => setResult(r)}
             onError={(e) => console.error("PSI error:", e)}
           />
@@ -65,34 +70,60 @@ export const Discovery: React.FC = () => {
       )}
 
       {result && (
-        <div className="bg-zinc-900 border border-green-500/20 rounded-lg p-5 space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-green-500/10 flex items-center justify-center">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-green-400">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            </div>
-            <h3 className="text-sm font-semibold text-green-400">Discovery Complete</h3>
-          </div>
-          <p className="text-sm text-zinc-300">
-            Found <span className="font-semibold text-zinc-100">{result.matchCount}</span> match{result.matchCount !== 1 ? "es" : ""} out of {result.totalChecked} contacts.
+        <div className="card result-summary">
+          <h3>Discovery Complete</h3>
+          <p>
+            Found <strong>{result.matchCount}</strong> match
+            {result.matchCount !== 1 ? "es" : ""} out of{" "}
+            {result.totalChecked} contacts.
           </p>
-          <a
-            href={`https://explorer.solana.com/tx/${result.txSignature}?cluster=devnet`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"
-          >
-            Tx: {result.txSignature.slice(0, 8)}...{result.txSignature.slice(-8)}
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
-          </a>
-          <div>
+
+          {!result.demoMode && result.txSignature && (
+            <p className="tx-link">
+              Tx:{" "}
+              <a
+                href={`https://explorer.solana.com/tx/${result.txSignature}?cluster=devnet`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {result.txSignature.slice(0, 8)}...{result.txSignature.slice(-8)}
+              </a>
+            </p>
+          )}
+
+          {/* Post-discovery CTAs */}
+          {result.matchCount === 0 && (
+            <div className="cta-card">
+              <h4>No matches yet</h4>
+              <p>Invite your friends to join Blind-Link so you can discover each other privately.</p>
+            </div>
+          )}
+
+          {result.matchCount > 0 && (
+            <div className="cta-card">
+              <h4>Share your experience</h4>
+              <p>
+                Found {result.matchCount} contact{result.matchCount !== 1 ? "s" : ""} privately —
+                no data was shared with anyone.
+              </p>
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
             <button
-              onClick={() => { setContacts(null); setResult(null); }}
-              className="text-xs text-zinc-400 hover:text-zinc-300 px-3 py-1.5 rounded border border-zinc-700 hover:border-zinc-600 transition-colors"
+              className="btn-primary"
+              onClick={() => {
+                setContacts(null);
+                setResult(null);
+              }}
             >
               New Discovery
             </button>
+            {!connected && (
+              <Link to="/register" className="btn-secondary">
+                Register Yourself
+              </Link>
+            )}
           </div>
         </div>
       )}

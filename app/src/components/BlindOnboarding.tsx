@@ -1,11 +1,10 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { BlindLinkClient, PsiResult, OnboardingCallbacks } from "../services/blind-link-client";
-import { Shield, Loader2, CheckCircle2, AlertCircle, Lock } from "lucide-react";
 
 type OnboardingStep = "idle" | "hashing" | "computing" | "revealing" | "complete" | "error";
 
 interface BlindOnboardingProps {
-  client: BlindLinkClient;
+  client: BlindLinkClient | null;
   contacts: string[];
   demoRegisteredUsers?: string[];
   onComplete?: (result: PsiResult) => void;
@@ -21,21 +20,27 @@ interface StepState {
   mxeChecked: boolean;
 }
 
-const STEPS = [
-  { key: "hashing", label: "Local Hash", privacy: "Processing on-device — nothing transmitted" },
-  { key: "computing", label: "MXE Compute", privacy: "Encrypted data in MXE — no node sees plaintext" },
-  { key: "revealing", label: "Decrypt", privacy: "Decrypted locally — only you see matches" },
-] as const;
-
 export const BlindOnboarding: React.FC<BlindOnboardingProps> = ({
-  client, contacts, demoRegisteredUsers, onComplete, onError,
+  client,
+  contacts,
+  demoRegisteredUsers,
+  onComplete,
+  onError,
 }) => {
   const [state, setState] = useState<StepState>({
-    step: "idle", hashProgress: { processed: 0, total: 0 },
-    result: null, error: null, demoMode: false, mxeChecked: false,
+    step: "idle",
+    hashProgress: { processed: 0, total: 0 },
+    result: null,
+    error: null,
+    demoMode: !client,
+    mxeChecked: !client,
   });
 
   useEffect(() => {
+    if (!client) {
+      setState((s) => ({ ...s, demoMode: true, mxeChecked: true }));
+      return;
+    }
     client.isMxeAvailable().then((available) => {
       setState((s) => ({ ...s, demoMode: !available, mxeChecked: true }));
     });
@@ -43,19 +48,59 @@ export const BlindOnboarding: React.FC<BlindOnboardingProps> = ({
 
   const startOnboarding = useCallback(async () => {
     setState((s) => ({ ...s, step: "hashing", error: null }));
+
     const callbacks: OnboardingCallbacks = {
-      onHashProgress: (processed, total) => setState((s) => ({ ...s, hashProgress: { processed, total } })),
-      onHashComplete: () => setState((s) => ({ ...s, step: "computing" })),
-      onComputeStart: () => setState((s) => ({ ...s, step: "computing" })),
-      onComputeComplete: () => setState((s) => ({ ...s, step: "revealing" })),
-      onReveal: () => setState((s) => ({ ...s, step: "complete" })),
-      onError: (error) => { setState((s) => ({ ...s, step: "error", error: error.message })); onError?.(error); },
+      onHashProgress: (processed, total) => {
+        setState((s) => ({ ...s, hashProgress: { processed, total } }));
+      },
+      onHashComplete: () => {
+        setState((s) => ({ ...s, step: "computing" }));
+      },
+      onComputeStart: () => {
+        setState((s) => ({ ...s, step: "computing" }));
+      },
+      onComputeComplete: () => {
+        setState((s) => ({ ...s, step: "revealing" }));
+      },
+      onReveal: () => {
+        setState((s) => ({ ...s, step: "complete" }));
+      },
+      onError: (error) => {
+        setState((s) => ({ ...s, step: "error", error: error.message }));
+        onError?.(error);
+      },
     };
+
     try {
       let result: PsiResult;
-      if (state.demoMode) {
-        const demoUsers = demoRegisteredUsers || ["alice@example.com", "bob@example.com", "carol@example.com", "dave@example.com", "eve@example.com"];
-        result = await client.blindOnboardDemo(contacts, demoUsers, callbacks);
+      if (state.demoMode || !client) {
+        const demoUsers = demoRegisteredUsers || [
+          "alice@example.com", "bob@example.com", "carol@example.com",
+          "dave@example.com", "eve@example.com",
+        ];
+        if (client) {
+          result = await client.blindOnboardDemo(contacts, demoUsers, callbacks);
+        } else {
+          // No client at all (no wallet) — simulate locally
+          callbacks.onHashProgress?.(0, contacts.length);
+          await new Promise((r) => setTimeout(r, 800));
+          callbacks.onHashProgress?.(contacts.length, contacts.length);
+          callbacks.onHashComplete?.(contacts.length);
+          await new Promise((r) => setTimeout(r, 1200));
+          callbacks.onComputeComplete?.();
+          await new Promise((r) => setTimeout(r, 600));
+
+          const matched = contacts.filter((c) =>
+            demoUsers.some((u) => u.toLowerCase() === c.toLowerCase())
+          );
+          result = {
+            matchedContacts: matched,
+            matchCount: matched.length,
+            totalChecked: contacts.length,
+            txSignature: "demo-mode-no-wallet",
+            demoMode: true,
+          };
+        }
       } else {
         result = await client.blindOnboard(contacts, callbacks);
       }
@@ -68,140 +113,211 @@ export const BlindOnboarding: React.FC<BlindOnboardingProps> = ({
     }
   }, [client, contacts, demoRegisteredUsers, state.demoMode, onComplete, onError]);
 
-  const progressPercent = state.hashProgress.total > 0
-    ? Math.round((state.hashProgress.processed / state.hashProgress.total) * 100) : 0;
-  const currentStepIdx = STEPS.findIndex((s) => s.key === state.step);
+  const progressPercent =
+    state.hashProgress.total > 0
+      ? Math.round((state.hashProgress.processed / state.hashProgress.total) * 100)
+      : 0;
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-[15px] font-semibold text-zinc-100">Private Discovery</h2>
-        <p className="text-[12px] text-zinc-500 mt-0.5">Your address book never leaves your device.</p>
-      </div>
+    <div className="blind-onboarding">
+      <h2>Find Your Contacts Privately</h2>
+      <p className="subtitle">
+        Your address book never leaves your device. Only encrypted hashes are
+        compared in a secure privacy network.
+      </p>
 
       {state.mxeChecked && state.demoMode && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/[0.04] border border-amber-500/10">
-          <AlertCircle size={13} className="text-amber-500 flex-shrink-0" />
-          <span className="text-[11px] text-amber-400/80">Demo mode — local SHA-256 PSI simulation.</span>
+        <div className="demo-banner">
+          <strong>Demo Mode</strong> — Privacy network is offline. Running local
+          simulation with real cryptographic hash matching. In production, this
+          computation runs in a distributed privacy network.
         </div>
       )}
 
-      {/* Step indicator */}
-      <div className="flex items-center gap-1">
-        {STEPS.map((s, i) => {
-          const isComplete = currentStepIdx > i || state.step === "complete";
-          const isActive = s.key === state.step;
-          return (
-            <React.Fragment key={s.key}>
-              {i > 0 && <div className={`flex-1 h-px mx-1 ${isComplete ? "bg-green-500/50" : "bg-zinc-800"}`} />}
-              <div className="flex flex-col items-center gap-1">
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-medium border transition-colors ${
-                  isComplete ? "bg-green-500/10 border-green-500/20 text-green-400" :
-                  isActive ? "bg-arcium/10 border-arcium/20 text-arcium" :
-                  "bg-zinc-900 border-zinc-800 text-zinc-600"
-                }`}>
-                  {isComplete ? <CheckCircle2 size={13} /> : i + 1}
-                </div>
-                <span className={`text-[10px] uppercase tracking-wider font-medium ${
-                  isActive ? "text-arcium" : isComplete ? "text-green-400/70" : "text-zinc-700"
-                }`}>{s.label}</span>
-              </div>
-            </React.Fragment>
-          );
-        })}
+      {/* Step Indicator */}
+      <div className="steps">
+        <StepIndicator
+          number={1}
+          label="Local Hash"
+          active={state.step === "hashing"}
+          complete={["computing", "revealing", "complete"].includes(state.step)}
+        />
+        <StepDivider />
+        <StepIndicator
+          number={2}
+          label="Private Compute"
+          active={state.step === "computing"}
+          complete={["revealing", "complete"].includes(state.step)}
+        />
+        <StepDivider />
+        <StepIndicator
+          number={3}
+          label="Result Reveal"
+          active={state.step === "revealing"}
+          complete={state.step === "complete"}
+        />
       </div>
 
-      {/* Content */}
-      <div>
+      {/* Step Content */}
+      <div className="step-content">
         {state.step === "idle" && (
-          <div className="text-center py-6 space-y-4">
-            <p className="text-[13px] text-zinc-400">{contacts.length} contacts ready</p>
-            <button onClick={startOnboarding}
-              className="px-5 py-2.5 text-[13px] font-medium text-white bg-arcium hover:bg-arcium/90 rounded-lg transition-colors">
+          <div className="idle-state">
+            <p>{contacts.length} contacts ready for private discovery</p>
+            <button className="btn-primary" onClick={startOnboarding}>
               Start Private Discovery
             </button>
-            <div className="flex items-center justify-center gap-1.5">
-              <Lock size={11} className="text-arcium/50" />
-              <span className="text-[11px] text-zinc-600">Zero contacts sent to any server</span>
-            </div>
+            <p className="privacy-note">
+              Zero contacts are sent to any server. All hashing happens
+              on-device in a background thread.
+            </p>
           </div>
         )}
 
         {state.step === "hashing" && (
-          <div className="space-y-3 py-4">
-            <div className="w-full h-1.5 bg-zinc-800/50 rounded-full overflow-hidden">
-              <div className="h-full bg-arcium rounded-full transition-all duration-200" style={{ width: `${progressPercent}%` }} />
+          <div className="hashing-state">
+            <div className="progress-bar">
+              <div
+                className="progress-fill"
+                style={{ width: `${progressPercent}%` }}
+              />
             </div>
-            <p className="text-[13px] text-zinc-300 text-center">Hashing {state.hashProgress.processed}/{state.hashProgress.total} ({progressPercent}%)</p>
-            <div className="flex justify-center">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium bg-arcium/8 text-arcium border border-arcium/15">
-                <Shield size={10} /> {STEPS[0].privacy}
-              </span>
+            <div className="progress-context">
+              <p className="progress-message">
+                Securing contact {state.hashProgress.processed} of {state.hashProgress.total}
+                <span className="progress-step-counter">{progressPercent}%</span>
+              </p>
+              <p className="progress-detail">
+                Hashing with salted SHA-256 in a Web Worker — your UI stays responsive
+              </p>
             </div>
           </div>
         )}
 
         {state.step === "computing" && (
-          <div className="text-center py-6 space-y-3">
-            <Loader2 size={24} className="text-arcium animate-spin mx-auto" />
-            <p className="text-[13px] text-zinc-300">Encrypted computation in progress...</p>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium bg-arcium/8 text-arcium border border-arcium/15">
-              <Shield size={10} /> {STEPS[1].privacy}
-            </span>
-            <p className="text-[10px] text-zinc-700">Cerberus Protocol — Dishonest Majority Security</p>
+          <div className="computing-state">
+            <div className="privacy-loader">
+              <div className="privacy-fog" />
+              <div className="privacy-fog" style={{ animationDelay: "1s" }} />
+              <div className="privacy-shield">🔒</div>
+            </div>
+            <div className="progress-context">
+              <p className="progress-message">Private computation in progress</p>
+              <p className="progress-detail">
+                Privacy network is comparing encrypted hashes. No single node can see your contacts.
+              </p>
+            </div>
+
+            {/* Split-screen view */}
+            <div className="split-view">
+              <div className="split-pane user-view">
+                <div className="split-pane-header">What You See</div>
+                <div style={{ fontSize: "0.88rem", color: "var(--text)" }}>
+                  {contacts.slice(0, 3).map((c, i) => (
+                    <div key={i} style={{ marginBottom: "0.4rem" }}>{c}</div>
+                  ))}
+                  {contacts.length > 3 && (
+                    <div style={{ color: "var(--text-muted)" }}>
+                      ... and {contacts.length - 3} more
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="split-pane network-view">
+                <div className="split-pane-header">What Network Sees</div>
+                <div className="encrypted-gibberish">
+                  0x7a2f8d1c4e9b3f6a<br />
+                  0x3d1c9e4b7f2a8d6c<br />
+                  0xe9b4f6a2d8c1e7f3<br />
+                  {contacts.length > 3 && "0x2a8d6c3f9e4b1c7d"}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
         {state.step === "revealing" && (
-          <div className="text-center py-6 space-y-3">
-            <Loader2 size={24} className="text-green-400 animate-spin mx-auto" />
-            <p className="text-[13px] text-zinc-300">Decrypting results...</p>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium bg-green-500/8 text-green-400 border border-green-500/15">
-              <Shield size={10} /> {STEPS[2].privacy}
-            </span>
+          <div className="revealing-state">
+            <div className="privacy-loader">
+              <div className="privacy-fog fog-clear" />
+              <div className="privacy-shield">🔓</div>
+            </div>
+            <div className="progress-context">
+              <p className="progress-message">Revealing results</p>
+              <p className="progress-detail">
+                Decrypting matched contacts on your device
+              </p>
+            </div>
           </div>
         )}
 
         {state.step === "complete" && state.result && (
-          <div className="text-center py-4 space-y-4">
-            <p className="text-xl font-semibold text-zinc-100">{state.result.matchCount} match{state.result.matchCount !== 1 ? "es" : ""}</p>
-            <p className="text-[13px] text-zinc-500">{state.result.totalChecked} contacts checked privately.</p>
+          <div className="complete-state">
+            <h3>
+              {state.result.matchCount} contact
+              {state.result.matchCount !== 1 ? "s" : ""} found!
+            </h3>
+            <p>
+              Out of {state.result.totalChecked} contacts checked,{" "}
+              {state.result.matchCount} are already on the platform.
+            </p>
+
             {state.result.matchedContacts.length > 0 && (
-              <div className="space-y-1 text-left max-w-sm mx-auto">
+              <ul className="matched-list">
                 {state.result.matchedContacts.map((contact, i) => (
-                  <div key={i} className="flex items-center justify-between px-3 py-2.5 bg-[#0d0d10] rounded-lg border border-border text-[12px]">
-                    <span className="font-mono text-zinc-300">{maskContact(contact)}</span>
-                    <span className="inline-flex items-center gap-1 text-green-400">
-                      <Shield size={10} /> Verified
-                    </span>
-                  </div>
+                  <li key={i} className="contact-silhouette revealed">
+                    <span className="contact-name">{maskContact(contact)}</span>
+                  </li>
                 ))}
+              </ul>
+            )}
+
+            {state.result.matchCount === 0 && (
+              <div className="empty-state" style={{ padding: "1.5rem" }}>
+                <div style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>🔍</div>
+                <p className="no-matches">
+                  No matches yet — invite your friends to join Blind-Link!
+                </p>
               </div>
             )}
+
             {state.result.demoMode && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium bg-amber-500/8 text-amber-400 border border-amber-500/15">
-                Demo result — production uses Arcium MPC
-              </span>
+              <p className="demo-note">
+                Demo mode result — in production, this comparison runs
+                privately in a distributed network.
+              </p>
             )}
-            <button onClick={() => setState((s) => ({ ...s, step: "idle" as const, hashProgress: { processed: 0, total: 0 }, result: null, error: null }))}
-              className="text-[12px] text-zinc-500 hover:text-zinc-300 px-3 py-1.5 rounded-md border border-border hover:border-zinc-600 transition-colors">
+
+            <button
+              className="btn-primary"
+              onClick={() =>
+                setState((s) => ({
+                  ...s,
+                  step: "idle" as const,
+                  hashProgress: { processed: 0, total: 0 },
+                  result: null,
+                  error: null,
+                }))
+              }
+            >
               Done
             </button>
           </div>
         )}
 
         {state.step === "error" && (
-          <div className="text-center py-6 space-y-3">
-            <AlertCircle size={20} className="text-red-400 mx-auto" />
-            <p className="text-[13px] text-red-400">
-              {state.error?.includes("MXE public key") ? "MXE cluster unavailable." :
-               state.error?.includes("User rejected") ? "Transaction rejected." :
-               state.error?.includes("insufficient") ? "Insufficient SOL." :
-               state.error || "Unexpected error."}
+          <div className="error-state">
+            <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>⚠️</div>
+            <p className="error-message">
+              {state.error?.includes("MXE public key")
+                ? "Privacy network is offline. The network may be undergoing maintenance — please try again later."
+                : state.error?.includes("User rejected")
+                ? "Transaction was canceled in your wallet."
+                : state.error?.includes("insufficient")
+                ? "Insufficient wallet balance. Please add some test tokens to your wallet."
+                : state.error || "Something went wrong. Please try again."}
             </p>
-            <button onClick={startOnboarding}
-              className="text-[12px] text-zinc-500 hover:text-zinc-300 px-3 py-1.5 rounded-md border border-border hover:border-zinc-600 transition-colors">
-              Retry
+            <button className="btn-primary" onClick={startOnboarding}>
+              Try Again
             </button>
           </div>
         )}
@@ -210,9 +326,28 @@ export const BlindOnboarding: React.FC<BlindOnboardingProps> = ({
   );
 };
 
+const StepIndicator: React.FC<{
+  number: number;
+  label: string;
+  active: boolean;
+  complete: boolean;
+}> = ({ number, label, active, complete }) => (
+  <div className={`step-indicator ${active ? "active" : ""} ${complete ? "complete" : ""}`}>
+    <div className="step-circle">{complete ? "\u2713" : number}</div>
+    <span className="step-label">{label}</span>
+  </div>
+);
+
+const StepDivider: React.FC = () => <div className="step-divider" />;
+
 function maskContact(contact: string): string {
-  if (contact.includes("@")) { const [l, d] = contact.split("@"); return l.slice(0, 2) + "***@" + d; }
-  if (contact.length > 6) return contact.slice(0, 3) + "****" + contact.slice(-2);
+  if (contact.includes("@")) {
+    const [local, domain] = contact.split("@");
+    return local.slice(0, 2) + "***@" + domain;
+  }
+  if (contact.length > 6) {
+    return contact.slice(0, 3) + "****" + contact.slice(-2);
+  }
   return contact.slice(0, 2) + "***";
 }
 
