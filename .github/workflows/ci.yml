@@ -8,7 +8,7 @@ on:
 
 jobs:
   lint-and-build:
-    name: Build
+    name: Lint, Test & Build
     runs-on: ubuntu-latest
 
     steps:
@@ -21,16 +21,26 @@ jobs:
           cache: 'npm'
           cache-dependency-path: app/package-lock.json
 
+      - name: Install root dependencies
+        run: npm install
+
       - name: Install frontend dependencies
         working-directory: ./app
         run: npm install
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run frontend tests
+        working-directory: ./app
+        run: npx vitest run
 
       - name: Build frontend
         working-directory: ./app
         run: npm run build
 
   rust-check:
-    name: Rust Check
+    name: Rust Format Check
     runs-on: ubuntu-latest
 
     steps:
@@ -40,9 +50,27 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
+          components: rustfmt
 
-      - name: Check circuit source (syntax)
-        run: rustfmt --check encrypted-ixs/src/lib.rs || true
+      - name: Check circuit formatting
+        run: rustfmt --check encrypted-ixs/src/lib.rs
 
-      - name: Check Solana program (syntax)
-        run: rustfmt --check programs/blind_link/src/lib.rs || true
+      - name: Check Solana program formatting
+        run: rustfmt --check programs/blind_link/src/lib.rs
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Audit frontend dependencies
+        working-directory: ./app
+        run: npm audit --audit-level=high
