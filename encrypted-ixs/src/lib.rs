@@ -173,10 +173,22 @@ mod circuits {
     pub fn init_registry() -> Enc<Mxe, GlobalRegistry> {
         let registry = GlobalRegistry {
             buckets: [
-                RegistryBucket { fingerprints: [0u128; BUCKET_SIZE], count: 0 },
-                RegistryBucket { fingerprints: [0u128; BUCKET_SIZE], count: 0 },
-                RegistryBucket { fingerprints: [0u128; BUCKET_SIZE], count: 0 },
-                RegistryBucket { fingerprints: [0u128; BUCKET_SIZE], count: 0 },
+                RegistryBucket {
+                    fingerprints: [0u128; BUCKET_SIZE],
+                    count: 0,
+                },
+                RegistryBucket {
+                    fingerprints: [0u128; BUCKET_SIZE],
+                    count: 0,
+                },
+                RegistryBucket {
+                    fingerprints: [0u128; BUCKET_SIZE],
+                    count: 0,
+                },
+                RegistryBucket {
+                    fingerprints: [0u128; BUCKET_SIZE],
+                    count: 0,
+                },
             ],
             total_users: 0,
         };

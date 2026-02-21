@@ -92,9 +92,7 @@ pub mod blind_link {
     }
 
     /// Initialize the computation definition for register_user.
-    pub fn init_register_user_comp_def(
-        ctx: Context<InitRegisterUserCompDef>,
-    ) -> Result<()> {
+    pub fn init_register_user_comp_def(ctx: Context<InitRegisterUserCompDef>) -> Result<()> {
         init_comp_def(ctx.accounts, None, None)?;
         msg!("Blind-Link: register_user comp_def registered");
         Ok(())
@@ -109,11 +107,8 @@ pub mod blind_link {
         Ok(())
     }
 
-
     /// Initialize the computation definition for init_registry.
-    pub fn init_init_registry_comp_def(
-        ctx: Context<InitInitRegistryCompDef>,
-    ) -> Result<()> {
+    pub fn init_init_registry_comp_def(ctx: Context<InitInitRegistryCompDef>) -> Result<()> {
         init_comp_def(ctx.accounts, None, None)?;
         msg!("Blind-Link: init_registry comp_def registered");
         Ok(())
@@ -173,7 +168,11 @@ pub mod blind_link {
         let registry_data_len = ctx.accounts.registry_state.encrypted_data.len();
 
         let args = arg_builder
-            .account(registry_key, registry_data_offset as u32, registry_data_len as u32)
+            .account(
+                registry_key,
+                registry_data_offset as u32,
+                registry_data_len as u32,
+            )
             .build();
 
         // Initialize sign PDA bump for CPI signing
@@ -234,7 +233,12 @@ pub mod blind_link {
 
         // Store encrypted result in session account for client retrieval
         let session = &mut ctx.accounts.psi_session;
-        session.result_ciphertext = verified.field_0.ciphertexts.iter().flat_map(|c| c.to_vec()).collect();
+        session.result_ciphertext = verified
+            .field_0
+            .ciphertexts
+            .iter()
+            .flat_map(|c| c.to_vec())
+            .collect();
         session.result_nonce = verified.field_0.nonce.to_le_bytes();
         session.status = 2; // completed
 
@@ -268,7 +272,11 @@ pub mod blind_link {
             .x25519_pubkey(pub_key)
             .plaintext_u128(nonce)
             .encrypted_u128(encrypted_hash)
-            .account(registry_key, registry_data_offset as u32, registry_data_len as u32)
+            .account(
+                registry_key,
+                registry_data_offset as u32,
+                registry_data_len as u32,
+            )
             .build();
 
         // Initialize sign PDA bump for CPI signing
@@ -313,7 +321,12 @@ pub mod blind_link {
 
         // Update registry with new encrypted state from MXE
         let registry = &mut ctx.accounts.registry_state;
-        registry.encrypted_data = verified.field_0.ciphertexts.iter().flat_map(|c| c.to_vec()).collect();
+        registry.encrypted_data = verified
+            .field_0
+            .ciphertexts
+            .iter()
+            .flat_map(|c| c.to_vec())
+            .collect();
         registry.nonce = u128::from_le_bytes(verified.field_0.nonce.to_le_bytes());
 
         // Note: Actual user count is encrypted in MXE state; cannot be read here
@@ -336,7 +349,11 @@ pub mod blind_link {
         let registry_data_len = ctx.accounts.registry_state.encrypted_data.len();
 
         let args = ArgBuilder::new()
-            .account(registry_key, registry_data_offset as u32, registry_data_len as u32)
+            .account(
+                registry_key,
+                registry_data_offset as u32,
+                registry_data_len as u32,
+            )
             .build();
 
         // Initialize sign PDA bump for CPI signing
@@ -434,119 +451,126 @@ pub mod blind_link {
         };
 
         let registry = &mut ctx.accounts.registry_state;
-        registry.encrypted_data = verified.field_0.ciphertexts.iter().flat_map(|c| c.to_vec()).collect();
+        registry.encrypted_data = verified
+            .field_0
+            .ciphertexts
+            .iter()
+            .flat_map(|c| c.to_vec())
+            .collect();
         registry.nonce = u128::from_le_bytes(verified.field_0.nonce.to_le_bytes());
 
-        msg!("Blind-Link: Registry bootstrapped with MXE-encrypted initial state ({} bytes)", registry.encrypted_data.len());
+        msg!(
+            "Blind-Link: Registry bootstrapped with MXE-encrypted initial state ({} bytes)",
+            registry.encrypted_data.len()
+        );
         Ok(())
     }
 
+    // ── Comp Def Offsets ────────────────────────────────────────────────────
 
-// ── Comp Def Offsets ────────────────────────────────────────────────────
+    const COMP_DEF_OFFSET_INTERSECT_CONTACTS: u32 = comp_def_offset("intersect_contacts");
+    const COMP_DEF_OFFSET_REGISTER_USER: u32 = comp_def_offset("register_user");
+    const COMP_DEF_OFFSET_REVEAL_REGISTRY_SIZE: u32 = comp_def_offset("reveal_registry_size");
+    const COMP_DEF_OFFSET_INIT_REGISTRY: u32 = comp_def_offset("init_registry");
 
-const COMP_DEF_OFFSET_INTERSECT_CONTACTS: u32 = comp_def_offset("intersect_contacts");
-const COMP_DEF_OFFSET_REGISTER_USER: u32 = comp_def_offset("register_user");
-const COMP_DEF_OFFSET_REVEAL_REGISTRY_SIZE: u32 = comp_def_offset("reveal_registry_size");
-const COMP_DEF_OFFSET_INIT_REGISTRY: u32 = comp_def_offset("init_registry");
+    // ── Account Structs ─────────────────────────────────────────────────────
 
-// ── Account Structs ─────────────────────────────────────────────────────
-
-#[derive(Accounts)]
-pub struct InitializeRegistry<'info> {
-    #[account(
+    #[derive(Accounts)]
+    pub struct InitializeRegistry<'info> {
+        #[account(
         init,
         payer = authority,
         space = 10240,
         seeds = [REGISTRY_SEED],
         bump
     )]
-    pub registry_state: Account<'info, RegistryState>,
-    #[account(mut)]
-    pub authority: Signer<'info>,
-    pub system_program: Program<'info, System>,
-}
+        pub registry_state: Account<'info, RegistryState>,
+        #[account(mut)]
+        pub authority: Signer<'info>,
+        pub system_program: Program<'info, System>,
+    }
 
-// ── Init Computation Definition Accounts ────────────────────────────────
+    // ── Init Computation Definition Accounts ────────────────────────────────
 
-#[init_computation_definition_accounts("intersect_contacts", payer)]
-#[derive(Accounts)]
-pub struct InitIntersectContactsCompDef<'info> {
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    #[account(mut, address = derive_mxe_pda!())]
-    pub mxe_account: Box<Account<'info, MXEAccount>>,
-    #[account(mut)]
-    /// CHECK: comp_def_account, checked by arcium program.
-    pub comp_def_account: UncheckedAccount<'info>,
-    #[account(mut, address = derive_mxe_lut_pda!(mxe_account.lut_offset_slot))]
-    /// CHECK: address_lookup_table, checked by arcium program.
-    pub address_lookup_table: UncheckedAccount<'info>,
-    #[account(address = LUT_PROGRAM_ID)]
-    /// CHECK: lut_program is the Address Lookup Table program.
-    pub lut_program: UncheckedAccount<'info>,
-    pub arcium_program: Program<'info, Arcium>,
-    pub system_program: Program<'info, System>,
-}
+    #[init_computation_definition_accounts("intersect_contacts", payer)]
+    #[derive(Accounts)]
+    pub struct InitIntersectContactsCompDef<'info> {
+        #[account(mut)]
+        pub payer: Signer<'info>,
+        #[account(mut, address = derive_mxe_pda!())]
+        pub mxe_account: Box<Account<'info, MXEAccount>>,
+        #[account(mut)]
+        /// CHECK: comp_def_account, checked by arcium program.
+        pub comp_def_account: UncheckedAccount<'info>,
+        #[account(mut, address = derive_mxe_lut_pda!(mxe_account.lut_offset_slot))]
+        /// CHECK: address_lookup_table, checked by arcium program.
+        pub address_lookup_table: UncheckedAccount<'info>,
+        #[account(address = LUT_PROGRAM_ID)]
+        /// CHECK: lut_program is the Address Lookup Table program.
+        pub lut_program: UncheckedAccount<'info>,
+        pub arcium_program: Program<'info, Arcium>,
+        pub system_program: Program<'info, System>,
+    }
 
-#[init_computation_definition_accounts("register_user", payer)]
-#[derive(Accounts)]
-pub struct InitRegisterUserCompDef<'info> {
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    #[account(mut, address = derive_mxe_pda!())]
-    pub mxe_account: Box<Account<'info, MXEAccount>>,
-    #[account(mut)]
-    /// CHECK: comp_def_account, checked by arcium program.
-    pub comp_def_account: UncheckedAccount<'info>,
-    #[account(mut, address = derive_mxe_lut_pda!(mxe_account.lut_offset_slot))]
-    /// CHECK: address_lookup_table, checked by arcium program.
-    pub address_lookup_table: UncheckedAccount<'info>,
-    #[account(address = LUT_PROGRAM_ID)]
-    /// CHECK: lut_program is the Address Lookup Table program.
-    pub lut_program: UncheckedAccount<'info>,
-    pub arcium_program: Program<'info, Arcium>,
-    pub system_program: Program<'info, System>,
-}
+    #[init_computation_definition_accounts("register_user", payer)]
+    #[derive(Accounts)]
+    pub struct InitRegisterUserCompDef<'info> {
+        #[account(mut)]
+        pub payer: Signer<'info>,
+        #[account(mut, address = derive_mxe_pda!())]
+        pub mxe_account: Box<Account<'info, MXEAccount>>,
+        #[account(mut)]
+        /// CHECK: comp_def_account, checked by arcium program.
+        pub comp_def_account: UncheckedAccount<'info>,
+        #[account(mut, address = derive_mxe_lut_pda!(mxe_account.lut_offset_slot))]
+        /// CHECK: address_lookup_table, checked by arcium program.
+        pub address_lookup_table: UncheckedAccount<'info>,
+        #[account(address = LUT_PROGRAM_ID)]
+        /// CHECK: lut_program is the Address Lookup Table program.
+        pub lut_program: UncheckedAccount<'info>,
+        pub arcium_program: Program<'info, Arcium>,
+        pub system_program: Program<'info, System>,
+    }
 
-#[init_computation_definition_accounts("reveal_registry_size", payer)]
-#[derive(Accounts)]
-pub struct InitRevealRegistrySizeCompDef<'info> {
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    #[account(mut, address = derive_mxe_pda!())]
-    pub mxe_account: Box<Account<'info, MXEAccount>>,
-    #[account(mut)]
-    /// CHECK: comp_def_account, checked by arcium program.
-    pub comp_def_account: UncheckedAccount<'info>,
-    #[account(mut, address = derive_mxe_lut_pda!(mxe_account.lut_offset_slot))]
-    /// CHECK: address_lookup_table, checked by arcium program.
-    pub address_lookup_table: UncheckedAccount<'info>,
-    #[account(address = LUT_PROGRAM_ID)]
-    /// CHECK: lut_program is the Address Lookup Table program.
-    pub lut_program: UncheckedAccount<'info>,
-    pub arcium_program: Program<'info, Arcium>,
-    pub system_program: Program<'info, System>,
-}
+    #[init_computation_definition_accounts("reveal_registry_size", payer)]
+    #[derive(Accounts)]
+    pub struct InitRevealRegistrySizeCompDef<'info> {
+        #[account(mut)]
+        pub payer: Signer<'info>,
+        #[account(mut, address = derive_mxe_pda!())]
+        pub mxe_account: Box<Account<'info, MXEAccount>>,
+        #[account(mut)]
+        /// CHECK: comp_def_account, checked by arcium program.
+        pub comp_def_account: UncheckedAccount<'info>,
+        #[account(mut, address = derive_mxe_lut_pda!(mxe_account.lut_offset_slot))]
+        /// CHECK: address_lookup_table, checked by arcium program.
+        pub address_lookup_table: UncheckedAccount<'info>,
+        #[account(address = LUT_PROGRAM_ID)]
+        /// CHECK: lut_program is the Address Lookup Table program.
+        pub lut_program: UncheckedAccount<'info>,
+        pub arcium_program: Program<'info, Arcium>,
+        pub system_program: Program<'info, System>,
+    }
 
-// ── Queue Computation Accounts ──────────────────────────────────────────
+    // ── Queue Computation Accounts ──────────────────────────────────────────
 
-#[queue_computation_accounts("intersect_contacts", user)]
-#[derive(Accounts)]
-#[instruction(computation_offset: u64)]
-pub struct IntersectContacts<'info> {
-    #[account(mut)]
-    pub user: Signer<'info>,
-    #[account(
+    #[queue_computation_accounts("intersect_contacts", user)]
+    #[derive(Accounts)]
+    #[instruction(computation_offset: u64)]
+    pub struct IntersectContacts<'info> {
+        #[account(mut)]
+        pub user: Signer<'info>,
+        #[account(
         init,
         payer = user,
         space = 8 + 1 + 32 + 8 + 4 + 16 + 1 + 8 + 2048,
         seeds = [SESSION_SEED, user.key().as_ref(), &computation_offset.to_le_bytes()],
         bump
     )]
-    pub psi_session: Account<'info, PsiSession>,
-    #[account(mut, seeds = [REGISTRY_SEED], bump = registry_state.bump)]
-    pub registry_state: Account<'info, RegistryState>,
-    #[account(
+        pub psi_session: Account<'info, PsiSession>,
+        #[account(mut, seeds = [REGISTRY_SEED], bump = registry_state.bump)]
+        pub registry_state: Account<'info, RegistryState>,
+        #[account(
         init_if_needed,
         space = 9,
         payer = user,
@@ -554,39 +578,39 @@ pub struct IntersectContacts<'info> {
         bump,
         address = derive_sign_pda!(),
     )]
-    pub sign_pda_account: Account<'info, ArciumSignerAccount>,
-    #[account(address = derive_mxe_pda!())]
-    pub mxe_account: Box<Account<'info, MXEAccount>>,
-    #[account(mut, address = derive_mempool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
-    /// CHECK: mempool_account, checked by arcium program.
-    pub mempool_account: UncheckedAccount<'info>,
-    #[account(mut, address = derive_execpool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
-    /// CHECK: executing_pool, checked by arcium program.
-    pub executing_pool: UncheckedAccount<'info>,
-    #[account(mut, address = derive_comp_pda!(computation_offset, mxe_account, ErrorCode::ClusterNotSet))]
-    /// CHECK: computation_account, checked by arcium program.
-    pub computation_account: UncheckedAccount<'info>,
-    #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_INTERSECT_CONTACTS))]
-    pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
-    #[account(mut, address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
-    pub cluster_account: Account<'info, Cluster>,
-    #[account(mut, address = ARCIUM_FEE_POOL_ACCOUNT_ADDRESS)]
-    pub pool_account: Account<'info, FeePool>,
-    #[account(mut, address = ARCIUM_CLOCK_ACCOUNT_ADDRESS)]
-    pub clock_account: Account<'info, ClockAccount>,
-    pub system_program: Program<'info, System>,
-    pub arcium_program: Program<'info, Arcium>,
-}
+        pub sign_pda_account: Account<'info, ArciumSignerAccount>,
+        #[account(address = derive_mxe_pda!())]
+        pub mxe_account: Box<Account<'info, MXEAccount>>,
+        #[account(mut, address = derive_mempool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+        /// CHECK: mempool_account, checked by arcium program.
+        pub mempool_account: UncheckedAccount<'info>,
+        #[account(mut, address = derive_execpool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+        /// CHECK: executing_pool, checked by arcium program.
+        pub executing_pool: UncheckedAccount<'info>,
+        #[account(mut, address = derive_comp_pda!(computation_offset, mxe_account, ErrorCode::ClusterNotSet))]
+        /// CHECK: computation_account, checked by arcium program.
+        pub computation_account: UncheckedAccount<'info>,
+        #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_INTERSECT_CONTACTS))]
+        pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
+        #[account(mut, address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+        pub cluster_account: Account<'info, Cluster>,
+        #[account(mut, address = ARCIUM_FEE_POOL_ACCOUNT_ADDRESS)]
+        pub pool_account: Account<'info, FeePool>,
+        #[account(mut, address = ARCIUM_CLOCK_ACCOUNT_ADDRESS)]
+        pub clock_account: Account<'info, ClockAccount>,
+        pub system_program: Program<'info, System>,
+        pub arcium_program: Program<'info, Arcium>,
+    }
 
-#[queue_computation_accounts("register_user", user)]
-#[derive(Accounts)]
-#[instruction(computation_offset: u64)]
-pub struct RegisterUser<'info> {
-    #[account(mut)]
-    pub user: Signer<'info>,
-    #[account(mut, seeds = [REGISTRY_SEED], bump = registry_state.bump)]
-    pub registry_state: Account<'info, RegistryState>,
-    #[account(
+    #[queue_computation_accounts("register_user", user)]
+    #[derive(Accounts)]
+    #[instruction(computation_offset: u64)]
+    pub struct RegisterUser<'info> {
+        #[account(mut)]
+        pub user: Signer<'info>,
+        #[account(mut, seeds = [REGISTRY_SEED], bump = registry_state.bump)]
+        pub registry_state: Account<'info, RegistryState>,
+        #[account(
         init_if_needed,
         space = 9,
         payer = user,
@@ -594,39 +618,39 @@ pub struct RegisterUser<'info> {
         bump,
         address = derive_sign_pda!(),
     )]
-    pub sign_pda_account: Account<'info, ArciumSignerAccount>,
-    #[account(address = derive_mxe_pda!())]
-    pub mxe_account: Box<Account<'info, MXEAccount>>,
-    #[account(mut, address = derive_mempool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
-    /// CHECK: mempool_account, checked by arcium program.
-    pub mempool_account: UncheckedAccount<'info>,
-    #[account(mut, address = derive_execpool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
-    /// CHECK: executing_pool, checked by arcium program.
-    pub executing_pool: UncheckedAccount<'info>,
-    #[account(mut, address = derive_comp_pda!(computation_offset, mxe_account, ErrorCode::ClusterNotSet))]
-    /// CHECK: computation_account, checked by arcium program.
-    pub computation_account: UncheckedAccount<'info>,
-    #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_REGISTER_USER))]
-    pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
-    #[account(mut, address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
-    pub cluster_account: Account<'info, Cluster>,
-    #[account(mut, address = ARCIUM_FEE_POOL_ACCOUNT_ADDRESS)]
-    pub pool_account: Account<'info, FeePool>,
-    #[account(mut, address = ARCIUM_CLOCK_ACCOUNT_ADDRESS)]
-    pub clock_account: Account<'info, ClockAccount>,
-    pub system_program: Program<'info, System>,
-    pub arcium_program: Program<'info, Arcium>,
-}
+        pub sign_pda_account: Account<'info, ArciumSignerAccount>,
+        #[account(address = derive_mxe_pda!())]
+        pub mxe_account: Box<Account<'info, MXEAccount>>,
+        #[account(mut, address = derive_mempool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+        /// CHECK: mempool_account, checked by arcium program.
+        pub mempool_account: UncheckedAccount<'info>,
+        #[account(mut, address = derive_execpool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+        /// CHECK: executing_pool, checked by arcium program.
+        pub executing_pool: UncheckedAccount<'info>,
+        #[account(mut, address = derive_comp_pda!(computation_offset, mxe_account, ErrorCode::ClusterNotSet))]
+        /// CHECK: computation_account, checked by arcium program.
+        pub computation_account: UncheckedAccount<'info>,
+        #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_REGISTER_USER))]
+        pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
+        #[account(mut, address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+        pub cluster_account: Account<'info, Cluster>,
+        #[account(mut, address = ARCIUM_FEE_POOL_ACCOUNT_ADDRESS)]
+        pub pool_account: Account<'info, FeePool>,
+        #[account(mut, address = ARCIUM_CLOCK_ACCOUNT_ADDRESS)]
+        pub clock_account: Account<'info, ClockAccount>,
+        pub system_program: Program<'info, System>,
+        pub arcium_program: Program<'info, Arcium>,
+    }
 
-#[queue_computation_accounts("reveal_registry_size", payer)]
-#[derive(Accounts)]
-#[instruction(computation_offset: u64)]
-pub struct RevealRegistrySize<'info> {
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    #[account(seeds = [REGISTRY_SEED], bump = registry_state.bump)]
-    pub registry_state: Account<'info, RegistryState>,
-    #[account(
+    #[queue_computation_accounts("reveal_registry_size", payer)]
+    #[derive(Accounts)]
+    #[instruction(computation_offset: u64)]
+    pub struct RevealRegistrySize<'info> {
+        #[account(mut)]
+        pub payer: Signer<'info>,
+        #[account(seeds = [REGISTRY_SEED], bump = registry_state.bump)]
+        pub registry_state: Account<'info, RegistryState>,
+        #[account(
         init_if_needed,
         space = 9,
         payer = payer,
@@ -634,117 +658,116 @@ pub struct RevealRegistrySize<'info> {
         bump,
         address = derive_sign_pda!(),
     )]
-    pub sign_pda_account: Account<'info, ArciumSignerAccount>,
-    #[account(address = derive_mxe_pda!())]
-    pub mxe_account: Box<Account<'info, MXEAccount>>,
-    #[account(mut, address = derive_mempool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
-    /// CHECK: mempool_account, checked by arcium program.
-    pub mempool_account: UncheckedAccount<'info>,
-    #[account(mut, address = derive_execpool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
-    /// CHECK: executing_pool, checked by arcium program.
-    pub executing_pool: UncheckedAccount<'info>,
-    #[account(mut, address = derive_comp_pda!(computation_offset, mxe_account, ErrorCode::ClusterNotSet))]
-    /// CHECK: computation_account, checked by arcium program.
-    pub computation_account: UncheckedAccount<'info>,
-    #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_REVEAL_REGISTRY_SIZE))]
-    pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
-    #[account(mut, address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
-    pub cluster_account: Account<'info, Cluster>,
-    #[account(mut, address = ARCIUM_FEE_POOL_ACCOUNT_ADDRESS)]
-    pub pool_account: Account<'info, FeePool>,
-    #[account(mut, address = ARCIUM_CLOCK_ACCOUNT_ADDRESS)]
-    pub clock_account: Account<'info, ClockAccount>,
-    pub system_program: Program<'info, System>,
-    pub arcium_program: Program<'info, Arcium>,
-}
+        pub sign_pda_account: Account<'info, ArciumSignerAccount>,
+        #[account(address = derive_mxe_pda!())]
+        pub mxe_account: Box<Account<'info, MXEAccount>>,
+        #[account(mut, address = derive_mempool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+        /// CHECK: mempool_account, checked by arcium program.
+        pub mempool_account: UncheckedAccount<'info>,
+        #[account(mut, address = derive_execpool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+        /// CHECK: executing_pool, checked by arcium program.
+        pub executing_pool: UncheckedAccount<'info>,
+        #[account(mut, address = derive_comp_pda!(computation_offset, mxe_account, ErrorCode::ClusterNotSet))]
+        /// CHECK: computation_account, checked by arcium program.
+        pub computation_account: UncheckedAccount<'info>,
+        #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_REVEAL_REGISTRY_SIZE))]
+        pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
+        #[account(mut, address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+        pub cluster_account: Account<'info, Cluster>,
+        #[account(mut, address = ARCIUM_FEE_POOL_ACCOUNT_ADDRESS)]
+        pub pool_account: Account<'info, FeePool>,
+        #[account(mut, address = ARCIUM_CLOCK_ACCOUNT_ADDRESS)]
+        pub clock_account: Account<'info, ClockAccount>,
+        pub system_program: Program<'info, System>,
+        pub arcium_program: Program<'info, Arcium>,
+    }
 
-// ── Callback Accounts ───────────────────────────────────────────────────
+    // ── Callback Accounts ───────────────────────────────────────────────────
 
-#[callback_accounts("intersect_contacts")]
-#[derive(Accounts)]
-pub struct IntersectContactsCallback<'info> {
-    pub arcium_program: Program<'info, Arcium>,
-    #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_INTERSECT_CONTACTS))]
-    pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
-    #[account(address = derive_mxe_pda!())]
-    pub mxe_account: Box<Account<'info, MXEAccount>>,
-    /// CHECK: Verified by Arcium callback handler via SignedComputationOutputs
-    pub computation_account: UncheckedAccount<'info>,
-    #[account(address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
-    pub cluster_account: Account<'info, Cluster>,
-    /// CHECK: Validated by address constraint matching Solana instructions sysvar ID
-    #[account(address = ::anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
-    #[account(mut)]
-    pub psi_session: Account<'info, PsiSession>,
-}
+    #[callback_accounts("intersect_contacts")]
+    #[derive(Accounts)]
+    pub struct IntersectContactsCallback<'info> {
+        pub arcium_program: Program<'info, Arcium>,
+        #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_INTERSECT_CONTACTS))]
+        pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
+        #[account(address = derive_mxe_pda!())]
+        pub mxe_account: Box<Account<'info, MXEAccount>>,
+        /// CHECK: Verified by Arcium callback handler via SignedComputationOutputs
+        pub computation_account: UncheckedAccount<'info>,
+        #[account(address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+        pub cluster_account: Account<'info, Cluster>,
+        /// CHECK: Validated by address constraint matching Solana instructions sysvar ID
+        #[account(address = ::anchor_lang::solana_program::sysvar::instructions::ID)]
+        pub instructions_sysvar: AccountInfo<'info>,
+        #[account(mut)]
+        pub psi_session: Account<'info, PsiSession>,
+    }
 
-#[callback_accounts("register_user")]
-#[derive(Accounts)]
-pub struct RegisterUserCallback<'info> {
-    pub arcium_program: Program<'info, Arcium>,
-    #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_REGISTER_USER))]
-    pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
-    #[account(address = derive_mxe_pda!())]
-    pub mxe_account: Box<Account<'info, MXEAccount>>,
-    /// CHECK: Verified by Arcium callback handler via SignedComputationOutputs
-    pub computation_account: UncheckedAccount<'info>,
-    #[account(address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
-    pub cluster_account: Account<'info, Cluster>,
-    /// CHECK: Validated by address constraint matching Solana instructions sysvar ID
-    #[account(address = ::anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
-    #[account(mut)]
-    pub registry_state: Account<'info, RegistryState>,
-}
+    #[callback_accounts("register_user")]
+    #[derive(Accounts)]
+    pub struct RegisterUserCallback<'info> {
+        pub arcium_program: Program<'info, Arcium>,
+        #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_REGISTER_USER))]
+        pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
+        #[account(address = derive_mxe_pda!())]
+        pub mxe_account: Box<Account<'info, MXEAccount>>,
+        /// CHECK: Verified by Arcium callback handler via SignedComputationOutputs
+        pub computation_account: UncheckedAccount<'info>,
+        #[account(address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+        pub cluster_account: Account<'info, Cluster>,
+        /// CHECK: Validated by address constraint matching Solana instructions sysvar ID
+        #[account(address = ::anchor_lang::solana_program::sysvar::instructions::ID)]
+        pub instructions_sysvar: AccountInfo<'info>,
+        #[account(mut)]
+        pub registry_state: Account<'info, RegistryState>,
+    }
 
-#[callback_accounts("reveal_registry_size")]
-#[derive(Accounts)]
-pub struct RevealRegistrySizeCallback<'info> {
-    pub arcium_program: Program<'info, Arcium>,
-    #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_REVEAL_REGISTRY_SIZE))]
-    pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
-    #[account(address = derive_mxe_pda!())]
-    pub mxe_account: Box<Account<'info, MXEAccount>>,
-    /// CHECK: Verified by Arcium callback handler via SignedComputationOutputs
-    pub computation_account: UncheckedAccount<'info>,
-    #[account(address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
-    pub cluster_account: Account<'info, Cluster>,
-    /// CHECK: Validated by address constraint matching Solana instructions sysvar ID
-    #[account(address = ::anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
-}
+    #[callback_accounts("reveal_registry_size")]
+    #[derive(Accounts)]
+    pub struct RevealRegistrySizeCallback<'info> {
+        pub arcium_program: Program<'info, Arcium>,
+        #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_REVEAL_REGISTRY_SIZE))]
+        pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
+        #[account(address = derive_mxe_pda!())]
+        pub mxe_account: Box<Account<'info, MXEAccount>>,
+        /// CHECK: Verified by Arcium callback handler via SignedComputationOutputs
+        pub computation_account: UncheckedAccount<'info>,
+        #[account(address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+        pub cluster_account: Account<'info, Cluster>,
+        /// CHECK: Validated by address constraint matching Solana instructions sysvar ID
+        #[account(address = ::anchor_lang::solana_program::sysvar::instructions::ID)]
+        pub instructions_sysvar: AccountInfo<'info>,
+    }
 
+    #[init_computation_definition_accounts("init_registry", payer)]
+    #[derive(Accounts)]
+    pub struct InitInitRegistryCompDef<'info> {
+        #[account(mut)]
+        pub payer: Signer<'info>,
+        #[account(mut, address = derive_mxe_pda!())]
+        pub mxe_account: Box<Account<'info, MXEAccount>>,
+        #[account(mut)]
+        /// CHECK: comp_def_account, checked by arcium program.
+        pub comp_def_account: UncheckedAccount<'info>,
+        #[account(mut, address = derive_mxe_lut_pda!(mxe_account.lut_offset_slot))]
+        /// CHECK: address_lookup_table, checked by arcium program.
+        pub address_lookup_table: UncheckedAccount<'info>,
+        #[account(address = LUT_PROGRAM_ID)]
+        /// CHECK: lut_program is the Address Lookup Table program.
+        pub lut_program: UncheckedAccount<'info>,
+        pub arcium_program: Program<'info, Arcium>,
+        pub system_program: Program<'info, System>,
+    }
 
-#[init_computation_definition_accounts("init_registry", payer)]
-#[derive(Accounts)]
-pub struct InitInitRegistryCompDef<'info> {
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    #[account(mut, address = derive_mxe_pda!())]
-    pub mxe_account: Box<Account<'info, MXEAccount>>,
-    #[account(mut)]
-    /// CHECK: comp_def_account, checked by arcium program.
-    pub comp_def_account: UncheckedAccount<'info>,
-    #[account(mut, address = derive_mxe_lut_pda!(mxe_account.lut_offset_slot))]
-    /// CHECK: address_lookup_table, checked by arcium program.
-    pub address_lookup_table: UncheckedAccount<'info>,
-    #[account(address = LUT_PROGRAM_ID)]
-    /// CHECK: lut_program is the Address Lookup Table program.
-    pub lut_program: UncheckedAccount<'info>,
-    pub arcium_program: Program<'info, Arcium>,
-    pub system_program: Program<'info, System>,
-}
-
-#[queue_computation_accounts("init_registry", payer)]
-#[derive(Accounts)]
-#[instruction(computation_offset: u64)]
-pub struct QueueInitRegistry<'info> {
-    #[account(mut)]
-    pub payer: Signer<'info>,
-    #[account(mut, seeds = [REGISTRY_SEED], bump = registry_state.bump)]
-    pub registry_state: Account<'info, RegistryState>,
-    #[account(
+    #[queue_computation_accounts("init_registry", payer)]
+    #[derive(Accounts)]
+    #[instruction(computation_offset: u64)]
+    pub struct QueueInitRegistry<'info> {
+        #[account(mut)]
+        pub payer: Signer<'info>,
+        #[account(mut, seeds = [REGISTRY_SEED], bump = registry_state.bump)]
+        pub registry_state: Account<'info, RegistryState>,
+        #[account(
         init_if_needed,
         space = 9,
         payer = payer,
@@ -752,85 +775,85 @@ pub struct QueueInitRegistry<'info> {
         bump,
         address = derive_sign_pda!(),
     )]
-    pub sign_pda_account: Account<'info, ArciumSignerAccount>,
-    #[account(address = derive_mxe_pda!())]
-    pub mxe_account: Box<Account<'info, MXEAccount>>,
-    #[account(mut, address = derive_mempool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
-    /// CHECK: mempool_account, checked by arcium program.
-    pub mempool_account: UncheckedAccount<'info>,
-    #[account(mut, address = derive_execpool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
-    /// CHECK: executing_pool, checked by arcium program.
-    pub executing_pool: UncheckedAccount<'info>,
-    #[account(mut, address = derive_comp_pda!(computation_offset, mxe_account, ErrorCode::ClusterNotSet))]
-    /// CHECK: computation_account, checked by arcium program.
-    pub computation_account: UncheckedAccount<'info>,
-    #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_INIT_REGISTRY))]
-    pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
-    #[account(mut, address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
-    pub cluster_account: Account<'info, Cluster>,
-    #[account(mut, address = ARCIUM_FEE_POOL_ACCOUNT_ADDRESS)]
-    pub pool_account: Account<'info, FeePool>,
-    #[account(mut, address = ARCIUM_CLOCK_ACCOUNT_ADDRESS)]
-    pub clock_account: Account<'info, ClockAccount>,
-    pub system_program: Program<'info, System>,
-    pub arcium_program: Program<'info, Arcium>,
-}
+        pub sign_pda_account: Account<'info, ArciumSignerAccount>,
+        #[account(address = derive_mxe_pda!())]
+        pub mxe_account: Box<Account<'info, MXEAccount>>,
+        #[account(mut, address = derive_mempool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+        /// CHECK: mempool_account, checked by arcium program.
+        pub mempool_account: UncheckedAccount<'info>,
+        #[account(mut, address = derive_execpool_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+        /// CHECK: executing_pool, checked by arcium program.
+        pub executing_pool: UncheckedAccount<'info>,
+        #[account(mut, address = derive_comp_pda!(computation_offset, mxe_account, ErrorCode::ClusterNotSet))]
+        /// CHECK: computation_account, checked by arcium program.
+        pub computation_account: UncheckedAccount<'info>,
+        #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_INIT_REGISTRY))]
+        pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
+        #[account(mut, address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+        pub cluster_account: Account<'info, Cluster>,
+        #[account(mut, address = ARCIUM_FEE_POOL_ACCOUNT_ADDRESS)]
+        pub pool_account: Account<'info, FeePool>,
+        #[account(mut, address = ARCIUM_CLOCK_ACCOUNT_ADDRESS)]
+        pub clock_account: Account<'info, ClockAccount>,
+        pub system_program: Program<'info, System>,
+        pub arcium_program: Program<'info, Arcium>,
+    }
 
-#[callback_accounts("init_registry")]
-#[derive(Accounts)]
-pub struct InitRegistryCallback<'info> {
-    pub arcium_program: Program<'info, Arcium>,
-    #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_INIT_REGISTRY))]
-    pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
-    #[account(address = derive_mxe_pda!())]
-    pub mxe_account: Box<Account<'info, MXEAccount>>,
-    /// CHECK: Verified by Arcium callback handler via SignedComputationOutputs
-    pub computation_account: UncheckedAccount<'info>,
-    #[account(address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
-    pub cluster_account: Account<'info, Cluster>,
-    /// CHECK: Validated by address constraint matching Solana instructions sysvar ID
-    #[account(address = ::anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
-    #[account(mut)]
-    pub registry_state: Account<'info, RegistryState>,
-}
+    #[callback_accounts("init_registry")]
+    #[derive(Accounts)]
+    pub struct InitRegistryCallback<'info> {
+        pub arcium_program: Program<'info, Arcium>,
+        #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_INIT_REGISTRY))]
+        pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
+        #[account(address = derive_mxe_pda!())]
+        pub mxe_account: Box<Account<'info, MXEAccount>>,
+        /// CHECK: Verified by Arcium callback handler via SignedComputationOutputs
+        pub computation_account: UncheckedAccount<'info>,
+        #[account(address = derive_cluster_pda!(mxe_account, ErrorCode::ClusterNotSet))]
+        pub cluster_account: Account<'info, Cluster>,
+        /// CHECK: Validated by address constraint matching Solana instructions sysvar ID
+        #[account(address = ::anchor_lang::solana_program::sysvar::instructions::ID)]
+        pub instructions_sysvar: AccountInfo<'info>,
+        #[account(mut)]
+        pub registry_state: Account<'info, RegistryState>,
+    }
 
-// ── Events ──────────────────────────────────────────────────────────────
+    // ── Events ──────────────────────────────────────────────────────────────
 
-#[event]
-pub struct PsiCompleteEvent {
-    pub user: Pubkey,
-    pub computation_offset: u64,
-    pub result_ciphertexts: Vec<[u8; 32]>,
-    pub result_nonce: [u8; 16],
-}
+    #[event]
+    pub struct PsiCompleteEvent {
+        pub user: Pubkey,
+        pub computation_offset: u64,
+        pub result_ciphertexts: Vec<[u8; 32]>,
+        pub result_nonce: [u8; 16],
+    }
 
-/// Emitted when a user is successfully registered.
-/// Note: The actual user count is encrypted in MXE state and cannot be
-/// revealed here without a separate reveal_registry_size call.
-#[event]
-pub struct UserRegisteredEvent {
-    pub registry: Pubkey,
-}
+    /// Emitted when a user is successfully registered.
+    /// Note: The actual user count is encrypted in MXE state and cannot be
+    /// revealed here without a separate reveal_registry_size call.
+    #[event]
+    pub struct UserRegisteredEvent {
+        pub registry: Pubkey,
+    }
 
-#[event]
-pub struct RegistrySizeEvent {
-    pub total_users: u64,
-}
+    #[event]
+    pub struct RegistrySizeEvent {
+        pub total_users: u64,
+    }
 
-// ── Error Codes ─────────────────────────────────────────────────────────
+    // ── Error Codes ─────────────────────────────────────────────────────────
 
-#[error_code]
-pub enum ErrorCode {
-    #[msg("MXE computation output verification failed")]
-    VerificationFailed,
-    #[msg("Registry is at maximum capacity")]
-    RegistryFull,
-    #[msg("Session has already been completed")]
-    SessionAlreadyComplete,
-    #[msg("Unauthorized: only the session owner can retrieve results")]
-    Unauthorized,
-    #[msg("Arcium cluster not configured on MXE account")]
-    ClusterNotSet,
-}
+    #[error_code]
+    pub enum ErrorCode {
+        #[msg("MXE computation output verification failed")]
+        VerificationFailed,
+        #[msg("Registry is at maximum capacity")]
+        RegistryFull,
+        #[msg("Session has already been completed")]
+        SessionAlreadyComplete,
+        #[msg("Unauthorized: only the session owner can retrieve results")]
+        Unauthorized,
+        #[msg("Arcium cluster not configured on MXE account")]
+        ClusterNotSet,
+    }
 }
