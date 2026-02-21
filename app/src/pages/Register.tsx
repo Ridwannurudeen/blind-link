@@ -18,8 +18,8 @@ export const Register: React.FC = () => {
   const [state, setState] = useState<RegisterState>("idle");
   const [txSig, setTxSig] = useState("");
   const [error, setError] = useState("");
-  const [demoMode, setDemoMode] = useState(false);
-  const [mxeChecked, setMxeChecked] = useState(false);
+  const [demoMode, setDemoMode] = useState(!connected);
+  const [mxeChecked, setMxeChecked] = useState(!connected);
 
   const client = useMemo(() => {
     if (!wallet || !program) return null;
@@ -34,7 +34,11 @@ export const Register: React.FC = () => {
   }, [wallet, program, connection]);
 
   useEffect(() => {
-    if (!client) return;
+    if (!client) {
+      setDemoMode(true);
+      setMxeChecked(true);
+      return;
+    }
     client.isMxeAvailable().then((available) => {
       setDemoMode(!available);
       setMxeChecked(true);
@@ -47,7 +51,7 @@ export const Register: React.FC = () => {
     setState("registering");
     setError("");
 
-    if (demoMode) {
+    if (demoMode || !client) {
       const data = new TextEncoder().encode(identifier.trim().toLowerCase());
       await crypto.subtle.digest("SHA-256", data);
       await new Promise((r) => setTimeout(r, 1500));
@@ -65,7 +69,6 @@ export const Register: React.FC = () => {
       return;
     }
 
-    if (!client) return;
     try {
       const sig = await client.registerSelf(identifier.trim());
       setTxSig(sig);
@@ -84,44 +87,24 @@ export const Register: React.FC = () => {
     }
   };
 
-  if (!connected) {
-    return (
-      <div className="page-container">
-        <div className="card">
-          <div className="empty-state">
-            <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>🔒</div>
-            <h2>Register Yourself</h2>
-            <p>
-              Registration requires a wallet to sign and record your encrypted
-              identifier on-chain. Connect your Solana wallet to get started.
-            </p>
-            <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "0.75rem" }}>
-              Your identifier is hashed locally before anything leaves your browser.
-              Only the encrypted hash is stored on the blockchain.
-            </p>
-            <Link to="/discover" className="btn-secondary" style={{ marginTop: "1rem", display: "inline-block" }}>
-              Try Discovery Demo Instead
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="page-container">
       <div className="card">
         <h2>Register Yourself</h2>
         <p className="subtitle">
-          Add your contact identifier to the global encrypted registry.
-          Other users can then discover you without seeing the registry contents.
+          Add your contact identifier to the {demoMode ? "local demo" : "global encrypted"} registry.
+          {demoMode
+            ? " In demo mode, your identifier is stored locally so you can test discovery."
+            : " Other users can then discover you without seeing the registry contents."}
         </p>
 
         {mxeChecked && demoMode && (
           <div className="demo-banner">
-            <strong>Demo Mode</strong> — Privacy network is offline. Registration
-            will simulate the on-chain flow locally. In production, your identifier
-            is encrypted and inserted via the privacy network.
+            <strong>Demo Mode</strong> — {!connected ? "No wallet connected." : "Privacy network is offline."}{" "}
+            Registration is simulated locally with real SHA-256 hashing.
+            {connected
+              ? " In production, your identifier is encrypted and inserted via the privacy network."
+              : " Connect a wallet for on-chain registration."}
           </div>
         )}
 
@@ -138,7 +121,9 @@ export const Register: React.FC = () => {
                 onChange={(e) => setIdentifier(e.target.value)}
               />
               <p className="input-hint">
-                This will be hashed and encrypted before leaving your browser.
+                {demoMode
+                  ? "Your identifier will be hashed and stored locally. Try discovering it afterwards!"
+                  : "This will be hashed and encrypted before leaving your browser."}
               </p>
             </div>
             <button
@@ -164,7 +149,7 @@ export const Register: React.FC = () => {
               </p>
               <p className="progress-detail">
                 {demoMode
-                  ? "Your identifier is being hashed with SHA-256. In production, it would be encrypted and inserted into the privacy network registry."
+                  ? "Your identifier is being hashed with SHA-256 and saved to the local demo registry."
                   : "Your identifier is being hashed, encrypted, and inserted into the global registry through secure multi-party computation."}
               </p>
             </div>
@@ -176,7 +161,7 @@ export const Register: React.FC = () => {
             <h3>Registered!</h3>
             <p>
               {demoMode
-                ? "Your identifier has been hashed locally. In production, it would be securely added to the encrypted registry via the privacy network."
+                ? "Your identifier has been hashed and saved to the local demo registry. Go to Discovery to find it!"
                 : "Your identifier has been securely added to the encrypted registry. Other users can now discover you privately."}
             </p>
             {!demoMode && txSig && (
@@ -193,19 +178,24 @@ export const Register: React.FC = () => {
             )}
             {demoMode && (
               <p className="demo-note">
-                Demo mode — in production, this registration runs privately inside
-                the distributed privacy network.
+                Demo mode — your identifier is stored locally in this browser.
+                In production, this runs privately inside the distributed privacy network.
               </p>
             )}
-            <button
-              className="btn-secondary"
-              onClick={() => {
-                setState("idle");
-                setIdentifier("");
-              }}
-            >
-              Register Another
-            </button>
+            <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  setState("idle");
+                  setIdentifier("");
+                }}
+              >
+                Register Another
+              </button>
+              <Link to="/discover" className="btn-primary">
+                Discover Contacts
+              </Link>
+            </div>
           </div>
         )}
 
