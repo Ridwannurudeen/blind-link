@@ -37,13 +37,16 @@ export function normalizeContact(contact: string): string {
     return digitsOnly;
   }
 
-  // Email detection
-  if (trimmed.includes("@")) {
-    return trimmed.toLowerCase();
+  // Strip leading @ before classifying (handles like @username vs emails like user@domain)
+  const withoutLeadingAt = trimmed.replace(/^@/, "");
+
+  // Email detection: must have @ in the middle (not just a leading @)
+  if (withoutLeadingAt.includes("@")) {
+    return withoutLeadingAt.toLowerCase();
   }
 
   // Generic handle/username
-  return trimmed.toLowerCase().replace(/^@/, "");
+  return withoutLeadingAt.toLowerCase();
 }
 
 /**
