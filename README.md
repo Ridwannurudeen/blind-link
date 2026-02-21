@@ -6,6 +6,8 @@ Blind-Link is a Private Set Intersection (PSI) application built on the [Arcium]
 
 **[Live Demo](https://app-six-xi-40.vercel.app)** — no wallet required, try the demo mode instantly.
 
+**[Video Walkthrough](https://www.loom.com/share/8ca7302dc3d7478abde4ee873130c424)** — watch a full demo of Blind-Link in action.
+
 ---
 
 ## The Problem
