@@ -559,6 +559,241 @@ describe("blind-link", () => {
     console.log("  Empty contacts: 0 matches (correct) - tx:", tx);
   });
 
+  // ── Test: PSI with All Non-Matching Contacts ─────────────────────
+
+  it("returns zero matches when no contacts are registered", async () => {
+    const clientPrivateKey = x25519.utils.randomSecretKey();
+    const clientPublicKey = x25519.getPublicKey(clientPrivateKey);
+    const mxePublicKey = await fetchMXEKey(provider, program.programId);
+    const sharedSecret = x25519.getSharedSecret(clientPrivateKey, mxePublicKey);
+    const cipher = new RescueCipher(sharedSecret);
+    const nonce = randomBytes(16);
+
+    // All contacts are unregistered
+    const testContacts = [
+      "nobody1@fake.com",
+      "nobody2@fake.com",
+      "nobody3@fake.com",
+      "nobody4@fake.com",
+    ];
+
+    const hashes: bigint[] = [];
+    for (const contact of testContacts) {
+      const encoder = new TextEncoder();
+      const hashBuffer = await crypto.subtle.digest(
+        "SHA-256",
+        encoder.encode(contact)
+      );
+      const hashArray = new Uint8Array(hashBuffer);
+      let h = BigInt(0);
+      for (let i = 0; i < 16; i++) {
+        h |= BigInt(hashArray[i]) << BigInt(i * 8);
+      }
+      hashes.push(h);
+    }
+
+    const MAX_CLIENT_CONTACTS = 16;
+    const paddedHashes = new Array(MAX_CLIENT_CONTACTS).fill(BigInt(0));
+    hashes.forEach((h, i) => (paddedHashes[i] = h));
+
+    const plaintextValues = [...paddedHashes, BigInt(testContacts.length)];
+    const ciphertexts = cipher.encrypt(plaintextValues, nonce);
+
+    const encryptedHashes = ciphertexts
+      .slice(0, MAX_CLIENT_CONTACTS)
+      .map((ct: number[]) => Array.from(Uint8Array.from(ct)));
+    const encryptedCount = Array.from(
+      Uint8Array.from(ciphertexts[MAX_CLIENT_CONTACTS])
+    );
+
+    const computationOffset = new anchor.BN(randomBytes(8), "hex");
+    const SESSION_SEED = Buffer.from("psi_session");
+    const [sessionPda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [
+        SESSION_SEED,
+        provider.wallet.publicKey.toBuffer(),
+        computationOffset.toArrayLike(Buffer, "le", 8),
+      ],
+      program.programId
+    );
+
+    const tx = await withRetry(() => program.methods
+      .intersectContacts(
+        computationOffset,
+        encryptedHashes,
+        encryptedCount,
+        Array.from(clientPublicKey) as number[],
+        new anchor.BN(deserializeLE(nonce).toString())
+      )
+      .accountsPartial({
+        user: provider.wallet.publicKey,
+        psiSession: sessionPda,
+        registryState: registryPda,
+        signPdaAccount: signPda,
+        mxeAccount,
+        mempoolAccount: getMempoolAccAddress(arciumEnv.arciumClusterOffset),
+        executingPool: getExecutingPoolAccAddress(
+          arciumEnv.arciumClusterOffset
+        ),
+        computationAccount: getComputationAccAddress(
+          arciumEnv.arciumClusterOffset,
+          computationOffset
+        ),
+        compDefAccount: getCompDefAccAddress(
+          program.programId,
+          Buffer.from(
+            getCompDefAccOffset("intersect_contacts")
+          ).readUInt32LE()
+        ),
+        clusterAccount: getClusterAccAddress(arciumEnv.arciumClusterOffset),
+        poolAccount: feePool,
+        clockAccount,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        arciumProgram: arciumProgramId,
+      })
+      .rpc({ commitment: "confirmed" }));
+
+    await awaitComputationFinalization(
+      provider,
+      computationOffset,
+      program.programId,
+      "confirmed"
+    );
+
+    const session = await (program.account as any).psiSession.fetch(sessionPda);
+    expect(session.status).to.equal(2);
+
+    const decrypted = cipher.decrypt(
+      session.resultCiphertext,
+      session.resultNonce
+    );
+
+    // All contacts should be non-matching
+    for (let i = 0; i < testContacts.length; i++) {
+      expect(decrypted[i]).to.equal(BigInt(0));
+    }
+    const matchCount = Number(decrypted[MAX_CLIENT_CONTACTS]);
+    expect(matchCount).to.equal(0);
+
+    console.log("  Non-matching contacts: 0 matches (correct) - tx:", tx);
+  });
+
+  // ── Test: PSI with Duplicate Contact in Query ──────────────────
+
+  it("handles duplicate contacts in query correctly", async () => {
+    const clientPrivateKey = x25519.utils.randomSecretKey();
+    const clientPublicKey = x25519.getPublicKey(clientPrivateKey);
+    const mxePublicKey = await fetchMXEKey(provider, program.programId);
+    const sharedSecret = x25519.getSharedSecret(clientPrivateKey, mxePublicKey);
+    const cipher = new RescueCipher(sharedSecret);
+    const nonce = randomBytes(16);
+
+    // Same registered contact repeated — each should match independently
+    const testContacts = [
+      "alice@example.com",  // registered — should match
+      "alice@example.com",  // duplicate — should also match
+      "charlie@test.org",   // not registered — should NOT match
+    ];
+
+    const hashes: bigint[] = [];
+    for (const contact of testContacts) {
+      const encoder = new TextEncoder();
+      const hashBuffer = await crypto.subtle.digest(
+        "SHA-256",
+        encoder.encode(contact)
+      );
+      const hashArray = new Uint8Array(hashBuffer);
+      let h = BigInt(0);
+      for (let i = 0; i < 16; i++) {
+        h |= BigInt(hashArray[i]) << BigInt(i * 8);
+      }
+      hashes.push(h);
+    }
+
+    const MAX_CLIENT_CONTACTS = 16;
+    const paddedHashes = new Array(MAX_CLIENT_CONTACTS).fill(BigInt(0));
+    hashes.forEach((h, i) => (paddedHashes[i] = h));
+
+    const plaintextValues = [...paddedHashes, BigInt(testContacts.length)];
+    const ciphertexts = cipher.encrypt(plaintextValues, nonce);
+
+    const encryptedHashes = ciphertexts
+      .slice(0, MAX_CLIENT_CONTACTS)
+      .map((ct: number[]) => Array.from(Uint8Array.from(ct)));
+    const encryptedCount = Array.from(
+      Uint8Array.from(ciphertexts[MAX_CLIENT_CONTACTS])
+    );
+
+    const computationOffset = new anchor.BN(randomBytes(8), "hex");
+    const SESSION_SEED = Buffer.from("psi_session");
+    const [sessionPda] = anchor.web3.PublicKey.findProgramAddressSync(
+      [
+        SESSION_SEED,
+        provider.wallet.publicKey.toBuffer(),
+        computationOffset.toArrayLike(Buffer, "le", 8),
+      ],
+      program.programId
+    );
+
+    const tx = await withRetry(() => program.methods
+      .intersectContacts(
+        computationOffset,
+        encryptedHashes,
+        encryptedCount,
+        Array.from(clientPublicKey) as number[],
+        new anchor.BN(deserializeLE(nonce).toString())
+      )
+      .accountsPartial({
+        user: provider.wallet.publicKey,
+        psiSession: sessionPda,
+        registryState: registryPda,
+        signPdaAccount: signPda,
+        mxeAccount,
+        mempoolAccount: getMempoolAccAddress(arciumEnv.arciumClusterOffset),
+        executingPool: getExecutingPoolAccAddress(
+          arciumEnv.arciumClusterOffset
+        ),
+        computationAccount: getComputationAccAddress(
+          arciumEnv.arciumClusterOffset,
+          computationOffset
+        ),
+        compDefAccount: getCompDefAccAddress(
+          program.programId,
+          Buffer.from(
+            getCompDefAccOffset("intersect_contacts")
+          ).readUInt32LE()
+        ),
+        clusterAccount: getClusterAccAddress(arciumEnv.arciumClusterOffset),
+        poolAccount: feePool,
+        clockAccount,
+        systemProgram: anchor.web3.SystemProgram.programId,
+        arciumProgram: arciumProgramId,
+      })
+      .rpc({ commitment: "confirmed" }));
+
+    await awaitComputationFinalization(
+      provider,
+      computationOffset,
+      program.programId,
+      "confirmed"
+    );
+
+    const session = await (program.account as any).psiSession.fetch(sessionPda);
+    expect(session.status).to.equal(2);
+
+    const decrypted = cipher.decrypt(
+      session.resultCiphertext,
+      session.resultNonce
+    );
+
+    // Both alice entries should match, charlie should not
+    expect(decrypted[0]).to.not.equal(BigInt(0)); // alice matched
+    expect(decrypted[1]).to.not.equal(BigInt(0)); // alice duplicate matched
+    expect(decrypted[2]).to.equal(BigInt(0));      // charlie not matched
+
+    console.log("  Duplicate contacts: both alice entries matched - tx:", tx);
+  });
+
   // ── Test: Register Second User and Multi-Match PSI ──────────────
 
   it("registers a second user and finds multiple matches", async () => {
