@@ -5,6 +5,7 @@
 [![Live Demo](https://img.shields.io/badge/Live_Demo-Try_Now-blue?style=for-the-badge)](https://arcium-blind-link.vercel.app)
 [![Video Demo](https://img.shields.io/badge/Video_Demo-Watch_on_Loom-purple?style=for-the-badge)](https://www.loom.com/share/8ca7302dc3d7478abde4ee873130c424)
 [![Built on Arcium](https://img.shields.io/badge/Built_on-Arcium_MXE-green?style=for-the-badge)](https://arcium.com)
+[![CI](https://github.com/Ridwannurudeen/blind-link/actions/workflows/ci.yml/badge.svg)](https://github.com/Ridwannurudeen/blind-link/actions/workflows/ci.yml)
 
 > No wallet required — try the demo mode instantly.
 

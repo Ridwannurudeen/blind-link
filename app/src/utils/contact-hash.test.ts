@@ -63,6 +63,45 @@ describe("Contact Canonicalization", () => {
     });
   });
 
+  describe("Edge cases", () => {
+    it("handles empty string", () => {
+      expect(normalizeContact("")).toBe("");
+      expect(normalizeContact("   ")).toBe("");
+    });
+
+    it("handles email with leading @ (not a handle)", () => {
+      // @user@domain.com — strip leading @, still has @ → email path
+      expect(normalizeContact("@user@domain.com")).toBe("user@domain.com");
+    });
+
+    it("does not treat short digit strings as phone numbers", () => {
+      // Less than 7 digits → handle path, not phone
+      expect(normalizeContact("123456")).toBe("123456");
+      expect(normalizeContact("12345")).toBe("12345");
+    });
+
+    it("does not treat long digit strings as phone numbers", () => {
+      // More than 15 digits → handle path
+      expect(normalizeContact("1234567890123456")).toBe("1234567890123456");
+    });
+
+    it("handles unicode and special characters in handles", () => {
+      expect(normalizeContact("@CaféUser")).toBe("caféuser");
+      expect(normalizeContact("user.name")).toBe("user.name");
+      expect(normalizeContact("user_name")).toBe("user_name");
+    });
+
+    it("preserves email local part special characters", () => {
+      expect(normalizeContact("user+tag@gmail.com")).toBe("user+tag@gmail.com");
+      expect(normalizeContact("first.last@domain.co.uk")).toBe("first.last@domain.co.uk");
+    });
+
+    it("phone with letters mixed in extracts digits only", () => {
+      // "call 5551234567" has 10 digits → phone path
+      expect(normalizeContact("call5551234567")).toBe("5551234567");
+    });
+  });
+
   describe("Hash determinism", () => {
     it("same input always produces same hash", async () => {
       const contact = "test@example.com";
