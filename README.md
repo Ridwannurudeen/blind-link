@@ -4,7 +4,7 @@
 
 Blind-Link is a Private Set Intersection (PSI) application built on the [Arcium](https://arcium.com) Multiparty Execution Environment (MXE). It lets users discover mutual contacts without either party exposing their address book — solving the #1 privacy barrier in Web3 social onboarding.
 
-**[Live Demo](https://app-six-xi-40.vercel.app)** — no wallet required, try the demo mode instantly.
+**[Live Demo](https://arcium-blind-link.vercel.app)** — no wallet required, try the demo mode instantly.
 
 **[Video Walkthrough](https://www.loom.com/share/8ca7302dc3d7478abde4ee873130c424)** — watch a full demo of Blind-Link in action.
 
