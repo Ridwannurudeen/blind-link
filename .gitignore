@@ -1,6 +1,5 @@
 # Blog/article artifacts (keep locally, don't commit)
 *.pdf
-*.html
 
 # Logs
 *.log
@@ -8,4 +7,26 @@
 # Temporary files
 nul
 
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+target/
+artifacts/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Deployment
 .vercel
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TypeScript
+*.tsbuildinfo

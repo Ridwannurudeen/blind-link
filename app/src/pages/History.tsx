@@ -217,3 +217,5 @@ export const History: React.FC = () => {
     </div>
   );
 };
+
+export default History;
