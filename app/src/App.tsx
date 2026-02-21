@@ -1,4 +1,4 @@
-import React, { useMemo, createContext, useContext, useState, useEffect } from "react";
+import React, { useMemo, createContext, useContext, useState, useEffect, Suspense, lazy } from "react";
 import {
   ConnectionProvider,
   WalletProvider,
@@ -6,14 +6,15 @@ import {
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Navbar } from "./components/Navbar";
-import { Landing } from "./pages/Landing";
-import { Register } from "./pages/Register";
-import { Discovery } from "./pages/Discovery";
-import { HowItWorks } from "./pages/HowItWorks";
-import { History } from "./pages/History";
 import { SOLANA_RPC } from "./config";
 
 import "@solana/wallet-adapter-react-ui/styles.css";
+
+const Landing = lazy(() => import("./pages/Landing"));
+const Register = lazy(() => import("./pages/Register"));
+const Discovery = lazy(() => import("./pages/Discovery"));
+const HowItWorks = lazy(() => import("./pages/HowItWorks"));
+const History = lazy(() => import("./pages/History"));
 
 type Theme = "light" | "dark";
 
@@ -55,13 +56,15 @@ export default function App() {
               <div className="app">
                 <Navbar />
                 <main>
-                  <Routes>
-                    <Route path="/" element={<Landing />} />
-                    <Route path="/register" element={<Register />} />
-                    <Route path="/discover" element={<Discovery />} />
-                    <Route path="/how-it-works" element={<HowItWorks />} />
-                    <Route path="/history" element={<History />} />
-                  </Routes>
+                  <Suspense fallback={<div className="page-loading">Loading...</div>}>
+                    <Routes>
+                      <Route path="/" element={<Landing />} />
+                      <Route path="/register" element={<Register />} />
+                      <Route path="/discover" element={<Discovery />} />
+                      <Route path="/how-it-works" element={<HowItWorks />} />
+                      <Route path="/history" element={<History />} />
+                    </Routes>
+                  </Suspense>
                 </main>
                 <footer>
                   <p>

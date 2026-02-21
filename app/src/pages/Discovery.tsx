@@ -130,3 +130,5 @@ export const Discovery: React.FC = () => {
     </div>
   );
 };
+
+export default Discovery;

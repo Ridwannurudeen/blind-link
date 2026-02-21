@@ -213,3 +213,5 @@ export const Register: React.FC = () => {
     </div>
   );
 };
+
+export default Register;

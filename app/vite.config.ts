@@ -31,6 +31,13 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-solana': ['@solana/web3.js', '@solana/wallet-adapter-react', '@solana/wallet-adapter-react-ui'],
+          'vendor-anchor': ['@coral-xyz/anchor'],
+        },
+      },
       plugins: [
         {
           name: "cjs-shims",
