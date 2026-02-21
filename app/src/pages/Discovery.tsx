@@ -8,13 +8,17 @@ import { BlindOnboarding } from "../components/BlindOnboarding";
 import { ContactInput } from "../components/ContactInput";
 import { useProgram } from "../hooks/useProgram";
 
-const DEMO_CONTACTS = [
-  "alice@example.com",
-  "bob@example.com",
-  "carol@example.com",
-  "dave@example.com",
-  "eve@example.com",
-];
+function getDemoRegisteredUsers(): string[] {
+  const builtIn = [
+    "alice@example.com",
+    "bob@example.com",
+    "carol@example.com",
+    "dave@example.com",
+    "eve@example.com",
+  ];
+  const userRegistered: string[] = JSON.parse(localStorage.getItem("blind-link-demo-registry") || "[]");
+  return [...new Set([...builtIn, ...userRegistered])];
+}
 
 export const Discovery: React.FC = () => {
   const { connected } = useWallet();
@@ -62,7 +66,7 @@ export const Discovery: React.FC = () => {
           <BlindOnboarding
             client={client}
             contacts={contacts}
-            demoRegisteredUsers={DEMO_CONTACTS}
+            demoRegisteredUsers={getDemoRegisteredUsers()}
             onComplete={(r) => setResult(r)}
             onError={(e) => console.error("PSI error:", e)}
           />

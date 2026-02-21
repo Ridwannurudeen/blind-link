@@ -51,6 +51,15 @@ export const Register: React.FC = () => {
       const data = new TextEncoder().encode(identifier.trim().toLowerCase());
       await crypto.subtle.digest("SHA-256", data);
       await new Promise((r) => setTimeout(r, 1500));
+
+      // Persist demo registration to localStorage so Discovery can find it
+      const normalized = identifier.trim().toLowerCase();
+      const existing: string[] = JSON.parse(localStorage.getItem("blind-link-demo-registry") || "[]");
+      if (!existing.includes(normalized)) {
+        existing.push(normalized);
+        localStorage.setItem("blind-link-demo-registry", JSON.stringify(existing));
+      }
+
       setTxSig("demo-mode-local-registration");
       setState("success");
       return;
