@@ -64,54 +64,60 @@ a:hover { text-decoration: underline; color: var(--primary); }
 main { flex: 1; }
 
 /* ── Navbar ──────────────────────────────────────────── */
-
 .navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 0;
+  padding: 0.85rem 0;
   margin-bottom: 2rem;
   border-bottom: 1px solid var(--border);
+  background: rgba(10, 14, 26, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .nav-brand {
-  font-size: 1.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.3rem;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--text);
   text-decoration: none;
 }
 
-.nav-brand:hover { text-decoration: none; }
+.nav-brand svg { color: var(--primary); }
+.nav-brand:hover { text-decoration: none; color: var(--text); }
 
 .nav-brand-group {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 1rem;
 }
 
-.nav-brand-divider {
-  width: 1px;
-  height: 18px;
-  background: var(--border);
-}
-
-.nav-arcium-link {
+.nav-arcium-badge {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  font-size: 0.8rem;
-  text-decoration: none;
-  transition: opacity 0.2s;
-}
-
-.nav-arcium-link:hover {
-  opacity: 0.85;
-  text-decoration: none;
-}
-
-.nav-arcium-text {
+  padding: 0.25rem 0.7rem;
+  background: var(--secondary-dim);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 20px;
+  font-size: 0.7rem;
   font-weight: 600;
-  color: var(--primary);
+  color: var(--secondary);
+  text-decoration: none;
+  transition: all var(--transition);
+  letter-spacing: 0.02em;
+}
+
+.nav-arcium-badge:hover {
+  background: rgba(139, 92, 246, 0.15);
+  border-color: var(--secondary);
+  text-decoration: none;
 }
 
 .nav-links {
@@ -121,31 +127,28 @@ main { flex: 1; }
 
 .nav-link {
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 500;
   text-decoration: none;
   transition: color var(--transition);
   position: relative;
+  padding: 0.25rem 0;
 }
 
-.nav-link:hover,
-.nav-link.active {
-  color: var(--text);
-  text-decoration: none;
-}
+.nav-link:hover { color: var(--text); text-decoration: none; }
 
 .nav-link.active {
   color: var(--primary);
 }
 
 .nav-link.active::after {
-  content: "";
+  content: '';
   position: absolute;
-  bottom: -1.1rem;
+  bottom: -0.85rem;
   left: 0;
   right: 0;
   height: 2px;
-  background: var(--primary);
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
   border-radius: 1px;
 }
 
@@ -153,44 +156,6 @@ main { flex: 1; }
   display: flex;
   align-items: center;
   gap: 0.75rem;
-}
-
-/* Theme toggle */
-.theme-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all var(--transition);
-  color: var(--text-muted);
-}
-
-.theme-toggle:hover {
-  background: var(--surface-2);
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-/* Wallet button */
-.wallet-connected {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.wallet-address {
-  font-family: monospace;
-  font-size: 0.8rem;
-  color: var(--primary);
-  background: var(--primary-dim);
-  padding: 0.35rem 0.65rem;
-  border-radius: 6px;
-  border: 1px solid transparent;
 }
 
 /* ── Cards ───────────────────────────────────────────── */
