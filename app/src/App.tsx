@@ -1,4 +1,4 @@
-import React, { useMemo, createContext, useContext, useState, useEffect, Suspense, lazy } from "react";
+import React, { useMemo, createContext, useContext, useEffect, Suspense, lazy } from "react";
 import {
   ConnectionProvider,
   WalletProvider,
@@ -16,7 +16,7 @@ const Discovery = lazy(() => import("./pages/Discovery"));
 const HowItWorks = lazy(() => import("./pages/HowItWorks"));
 const History = lazy(() => import("./pages/History"));
 
-type Theme = "light" | "dark";
+type Theme = "dark";
 
 interface ThemeContextType {
   theme: Theme;
@@ -24,7 +24,7 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: "light",
+  theme: "dark",
   toggleTheme: () => {},
 });
 
@@ -33,19 +33,12 @@ export const useTheme = () => useContext(ThemeContext);
 export default function App() {
   const wallets = useMemo(() => [], []);
 
-  const [theme, setTheme] = useState<Theme>(() => {
-    const saved = localStorage.getItem("blind-link-theme");
-    return saved === "dark" ? "dark" : "light";
-  });
+  const theme: Theme = "dark";
+  const toggleTheme = () => {};
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("blind-link-theme", theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === "light" ? "dark" : "light"));
-  };
+    document.documentElement.setAttribute("data-theme", "dark");
+  }, []);
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
