@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useWallet, useAnchorWallet } from "@solana/wallet-adapter-react";
 import { useConnection } from "@solana/wallet-adapter-react";
 import { Link } from "react-router-dom";
@@ -7,6 +7,57 @@ import { BlindLinkClient } from "../services/blind-link-client";
 import { useProgram } from "../hooks/useProgram";
 
 type RegisterState = "idle" | "registering" | "success" | "error";
+
+/* ── Inline SVG Icons ──────────────────────────────────── */
+
+const LockIcon = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </svg>
+);
+
+const CheckCircleIcon = () => (
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M9 12l2 2 4-4" />
+  </svg>
+);
+
+const AlertIcon = () => (
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--error)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+);
+
+const ShieldIcon = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+  </svg>
+);
+
+const HashIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="4" y1="9" x2="20" y2="9" />
+    <line x1="4" y1="15" x2="20" y2="15" />
+    <line x1="10" y1="3" x2="8" y2="21" />
+    <line x1="16" y1="3" x2="14" y2="21" />
+  </svg>
+);
+
+/* ── Helper: SHA-256 hex ───────────────────────────────── */
+
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input.trim().toLowerCase());
+  const buf = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/* ── Component ─────────────────────────────────────────── */
 
 export const Register: React.FC = () => {
   const { connected } = useWallet();
@@ -20,6 +71,8 @@ export const Register: React.FC = () => {
   const [error, setError] = useState("");
   const [demoMode, setDemoMode] = useState(!connected);
   const [mxeChecked, setMxeChecked] = useState(!connected);
+  const [hashPreview, setHashPreview] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const client = useMemo(() => {
     if (!wallet || !program) return null;
@@ -44,6 +97,26 @@ export const Register: React.FC = () => {
       setMxeChecked(true);
     });
   }, [client]);
+
+  /* Live hash preview with 300ms debounce */
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (!identifier.trim()) {
+      setHashPreview("");
+      return;
+    }
+
+    debounceRef.current = setTimeout(() => {
+      sha256Hex(identifier).then((hex) => {
+        setHashPreview(hex.slice(0, 16));
+      });
+    }, 300);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [identifier]);
 
   const handleRegister = async () => {
     if (!identifier.trim()) return;
@@ -89,8 +162,13 @@ export const Register: React.FC = () => {
 
   return (
     <div className="page-container">
-      <div className="card">
-        <h2>Register Yourself</h2>
+      <div className="card register-card">
+        <div className="register-header">
+          <div className="register-icon">
+            <LockIcon />
+          </div>
+          <h2>Register Yourself</h2>
+        </div>
         <p className="subtitle">
           Add your contact identifier to the {demoMode ? "local demo" : "global encrypted"} registry.
           {demoMode
@@ -125,6 +203,15 @@ export const Register: React.FC = () => {
                   ? "Your identifier will be hashed and stored locally. Try discovering it afterwards!"
                   : "This will be hashed and encrypted before leaving your browser."}
               </p>
+
+              {hashPreview && (
+                <div className="register-hash-preview">
+                  <span className="hash-preview-label">
+                    <HashIcon /> This is what gets encrypted
+                  </span>
+                  <code className="hash-preview-value">{hashPreview}...</code>
+                </div>
+              )}
             </div>
             <button
               className="btn-primary"
@@ -141,7 +228,7 @@ export const Register: React.FC = () => {
             <div className="privacy-loader">
               <div className="privacy-fog" />
               <div className="privacy-fog" style={{ animationDelay: "1s" }} />
-              <div className="privacy-shield">🔒</div>
+              <div className="privacy-shield"><ShieldIcon /></div>
             </div>
             <div className="progress-context">
               <p className="progress-message">
@@ -158,6 +245,9 @@ export const Register: React.FC = () => {
 
         {state === "success" && (
           <div className="success-state">
+            <div className="register-result-icon">
+              <CheckCircleIcon />
+            </div>
             <h3>Registered!</h3>
             <p>
               {demoMode
@@ -201,7 +291,9 @@ export const Register: React.FC = () => {
 
         {state === "error" && (
           <div className="error-state">
-            <div style={{ fontSize: "2.5rem", marginBottom: "1rem" }}>⚠️</div>
+            <div className="register-result-icon">
+              <AlertIcon />
+            </div>
             <p className="error-message">{error}</p>
             <button className="btn-primary" onClick={() => setState("idle")}>
               Try Again
