@@ -15,11 +15,14 @@ interface SessionRecord {
   matchCount: number | null;
 }
 
-const STATUS_MAP: Record<number, string> = {
-  0: "Pending",
-  1: "Computing",
-  2: "Completed",
-  3: "Failed",
+const statusFromByte = (b: number): string => {
+  switch (b) {
+    case 0: return "Pending";
+    case 1: return "Computing";
+    case 2: return "Completed";
+    case 3: return "Failed";
+    default: return "Unknown";
+  }
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -309,12 +312,13 @@ export const History: React.FC = () => {
 
         const records: SessionRecord[] = accounts.map((acc) => {
           const data = acc.account.data;
+          const statusByte = data[8]; // status field: byte after 8-byte discriminator
           const offset = new anchor.BN(data.slice(41, 49), "le").toString();
 
           return {
             pubkey: acc.pubkey.toBase58(),
             user: publicKey.toBase58(),
-            status: "Completed",
+            status: statusFromByte(statusByte),
             computationOffset: offset,
             createdAt: new Date().toLocaleDateString(),
             matchCount: null,
