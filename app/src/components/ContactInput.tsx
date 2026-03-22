@@ -47,9 +47,9 @@ function normalizeContact(raw: string): ParsedContact {
 }
 
 const TYPE_BADGE: Record<ContactType, { label: string; color: string }> = {
-  email: { label: "Email", color: "var(--accent)" },
-  phone: { label: "Phone", color: "var(--primary-light)" },
-  handle: { label: "Handle", color: "var(--warning)" },
+  email: { label: "Email", color: "#00d4ff" },
+  phone: { label: "Phone", color: "#10b981" },
+  handle: { label: "Handle", color: "#8b5cf6" },
   unknown: { label: "Other", color: "var(--text-muted)" },
 };
 
