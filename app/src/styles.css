@@ -662,7 +662,7 @@ main { flex: 1; }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--primary), var(--accent));
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
   border-radius: 4px;
   transition: width 0.2s ease;
 }
@@ -712,8 +712,8 @@ main { flex: 1; }
   border-radius: 50%;
   background: radial-gradient(
     circle at 30% 40%,
-    rgba(94, 96, 206, 0.25) 0%,
-    rgba(255, 107, 107, 0.15) 50%,
+    rgba(0, 212, 255, 0.25) 0%,
+    rgba(139, 92, 246, 0.15) 50%,
     transparent 70%
   );
   animation: fog-pulse 3s ease-in-out infinite;
@@ -770,7 +770,7 @@ main { flex: 1; }
 
 .split-pane.user-view {
   background: var(--primary-dim);
-  border: 1.5px solid rgba(94, 96, 206, 0.2);
+  border: 1.5px solid rgba(0, 212, 255, 0.2);
 }
 
 .split-pane.network-view {
@@ -1032,18 +1032,15 @@ main { flex: 1; }
 
 /* Demo mode */
 .demo-banner {
-  background: rgba(245, 158, 11, 0.08);
-  border: 1px solid rgba(245, 158, 11, 0.25);
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.2);
   border-radius: var(--radius);
   padding: 0.85rem 1.15rem;
   margin-bottom: 1.5rem;
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   color: var(--warning);
   line-height: 1.55;
-}
-
-[data-theme="dark"] .demo-banner {
-  background: rgba(245, 158, 11, 0.1);
+  backdrop-filter: blur(8px);
 }
 
 .demo-note {
@@ -1055,7 +1052,7 @@ main { flex: 1; }
 
 /* Result summary */
 .result-summary {
-  border-color: var(--success);
+  border-color: rgba(16, 185, 129, 0.3);
 }
 
 .result-summary h3 {
@@ -2101,6 +2098,133 @@ footer p {
   justify-content: center;
   gap: 0.75rem;
   margin-top: 1.5rem;
+}
+
+/* ── Circuit Inspector ───────────────────────────────── */
+.circuit-inspector {
+  margin: 2rem 0;
+}
+
+.circuit-inspector-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.85rem 1.15rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--font-ui);
+}
+
+.circuit-inspector-toggle:hover {
+  border-color: var(--border-hover);
+  background: var(--surface-elevated);
+}
+
+.circuit-inspector-toggle svg:first-child {
+  color: var(--primary);
+}
+
+.circuit-inspector-badge {
+  font-size: 0.6rem;
+  padding: 0.15rem 0.5rem;
+  background: var(--secondary-dim);
+  color: var(--secondary);
+  border-radius: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.circuit-inspector-body {
+  margin-top: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.circuit-inspector-note {
+  padding: 0.85rem 1.15rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-style: italic;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0, 212, 255, 0.03);
+}
+
+.circuit-inspector-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+
+.circuit-inspector-tab {
+  flex: 1;
+  padding: 0.65rem 1rem;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--font-mono);
+  border-bottom: 2px solid transparent;
+}
+
+.circuit-inspector-tab:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.circuit-inspector-tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.circuit-inspector-annotation {
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.circuit-inspector-annotation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.circuit-inspector-complexity {
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  padding: 0.2rem 0.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+}
+
+.circuit-inspector-annotation p {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.circuit-inspector-pre {
+  padding: 1rem 1.15rem;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.7;
+  color: var(--text-muted);
+  overflow-x: auto;
+  white-space: pre;
+  background: var(--surface-solid);
 }
 
 /* ── Responsive ──────────────────────────────────────── */
