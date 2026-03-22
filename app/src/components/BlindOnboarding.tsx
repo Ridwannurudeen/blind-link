@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { BlindLinkClient, PsiResult, OnboardingCallbacks } from "../services/blind-link-client";
+import { ComputationMetrics, MetricsData, generateDemoMetrics } from "./ComputationMetrics";
+import { ProofViewer, ProofData, generateDemoProof } from "./ProofViewer";
 
 type OnboardingStep = "idle" | "hashing" | "computing" | "revealing" | "complete" | "error";
 
@@ -35,6 +37,9 @@ export const BlindOnboarding: React.FC<BlindOnboardingProps> = ({
     demoMode: !client,
     mxeChecked: !client,
   });
+  const [showTechDetails, setShowTechDetails] = useState(false);
+  const [metricsData, setMetricsData] = useState<MetricsData | null>(null);
+  const [proofData, setProofData] = useState<ProofData | null>(null);
 
   useEffect(() => {
     if (!client) {
@@ -105,6 +110,9 @@ export const BlindOnboarding: React.FC<BlindOnboardingProps> = ({
         result = await client.blindOnboard(contacts, callbacks);
       }
       setState((s) => ({ ...s, step: "complete", result }));
+      setMetricsData(generateDemoMetrics(result.totalChecked));
+      setProofData(generateDemoProof(result.txSignature, result.matchCount));
+      setShowTechDetails(false);
       onComplete?.(result);
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
@@ -300,6 +308,21 @@ export const BlindOnboarding: React.FC<BlindOnboardingProps> = ({
                 Demo mode result — in production, this comparison runs
                 privately in a distributed network.
               </p>
+            )}
+
+            <button
+              className="btn-tech-details"
+              onClick={() => setShowTechDetails((v) => !v)}
+            >
+              {showTechDetails ? "Hide" : "View"} Technical Details
+            </button>
+
+            {showTechDetails && metricsData && (
+              <ComputationMetrics metrics={metricsData} />
+            )}
+
+            {showTechDetails && proofData && (
+              <ProofViewer proof={proofData} />
             )}
 
             <button
