@@ -62,7 +62,7 @@ export const ComputationMetrics: React.FC<ComputationMetricsProps> = ({ metrics 
   );
 };
 
-export function generateDemoMetrics(totalChecked: number): MetricsData {
+export function generateDemoMetrics(_totalChecked: number): MetricsData {
   const sessionHex = Array.from({ length: 8 }, () =>
     Math.floor(Math.random() * 256).toString(16).padStart(2, "0")
   ).join("");

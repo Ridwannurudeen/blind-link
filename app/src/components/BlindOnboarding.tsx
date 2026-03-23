@@ -43,7 +43,7 @@ export const BlindOnboarding: React.FC<BlindOnboardingProps> = ({
 
   useEffect(() => {
     if (!client) {
-      setState((s) => ({ ...s, demoMode: true, mxeChecked: true }));
+      queueMicrotask(() => setState((s) => ({ ...s, demoMode: true, mxeChecked: true })));
       return;
     }
     client.isMxeAvailable().then((available) => {
@@ -195,7 +195,7 @@ export const BlindOnboarding: React.FC<BlindOnboardingProps> = ({
                 <span className="progress-step-counter">{progressPercent}%</span>
               </p>
               <p className="progress-detail">
-                Hashing with salted SHA-256 in a Web Worker — your UI stays responsive
+                Hashing with SHA-256 in a Web Worker — your UI stays responsive
               </p>
             </div>
           </div>

@@ -2,9 +2,12 @@
 // Blind-Link: TypeScript Client Service
 // ============================================================================
 // Frontend service orchestrating the full "Blind Onboarding" flow:
-//   Step 1 — Local Hash:   Web Worker salted SHA-256 of address book
+//   Step 1 — Local Hash:   Web Worker deterministic SHA-256 of address book
 //   Step 2 — Arcium Compute: Encrypt + submit to MXE for private intersection
 //   Step 3 — Result Reveal:  Decrypt matched contacts client-side
+//
+// Hashing is DETERMINISTIC (no salt) — privacy is enforced by Arcium MPC
+// encryption, not hash randomization.
 //
 // Uses @arcium-hq/client for MXE key exchange, Rescue cipher encryption,
 // and computation lifecycle management.
@@ -117,23 +120,17 @@ export class BlindLinkClient {
 
   /**
    * Hash contacts in a Web Worker to avoid blocking the UI.
-   * Returns hex-encoded u128 hashes and the salt used.
+   * Returns hex-encoded u128 hashes (deterministic, no salt).
    */
   async hashContacts(
     contacts: string[],
     callbacks?: Pick<OnboardingCallbacks, "onHashProgress" | "onHashComplete">
-  ): Promise<{ hashes: string[]; salt: string }> {
-    // Generate a per-session salt (32 bytes, hex-encoded)
-    const salt = Array.from(randomBytes(32))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-
+  ): Promise<{ hashes: string[] }> {
     const batchId = Array.from(randomBytes(8))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
 
     return new Promise((resolve, reject) => {
-      // Vite resolves this at build time via the `new URL(..., import.meta.url)` pattern.
       const worker = new Worker(
         new URL("../workers/hash-worker.ts", import.meta.url),
         { type: "module" }
@@ -149,7 +146,7 @@ export class BlindLinkClient {
         if (event.data.type === "hash_result") {
           callbacks?.onHashComplete?.(event.data.count);
           worker.terminate();
-          resolve({ hashes: event.data.hashes, salt });
+          resolve({ hashes: event.data.hashes });
         }
       };
 
@@ -162,7 +159,6 @@ export class BlindLinkClient {
       worker.postMessage({
         type: "hash",
         contacts,
-        salt,
         batchId,
       });
     });
@@ -222,9 +218,6 @@ export class BlindLinkClient {
       ],
       this.program.programId
     );
-
-    // Set up event listener BEFORE submitting (avoid race condition)
-    const resultPromise = this.awaitPsiEvent();
 
     // Derive shared addresses
     const [signPda] = anchor.web3.PublicKey.findProgramAddressSync(
@@ -310,6 +303,7 @@ export class BlindLinkClient {
     );
 
     // Account type resolved from IDL after `anchor build` generates types
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const session = await (this.program.account as any).psiSession.fetch(sessionPda);
 
     if (session.status !== 2) {
@@ -348,7 +342,7 @@ export class BlindLinkClient {
 
   /**
    * Execute the complete 3-step Blind Onboarding:
-   *   1. Local Hash  → Web Worker salted SHA-256
+   *   1. Local Hash  → Web Worker deterministic SHA-256
    *   2. Arcium Compute → Encrypted PSI in MXE
    *   3. Result Reveal → Decrypt matched contacts
    */
@@ -389,10 +383,12 @@ export class BlindLinkClient {
    * Returns false if MXE keys can't be retrieved (cluster offline).
    */
   async isMxeAvailable(): Promise<boolean> {
-    // Arcium devnet MXE cluster nodes are currently offline.
-    // Keys are set on-chain but no nodes are processing computations.
-    // Force demo mode until the cluster is operational again.
-    return false;
+    try {
+      const key = await getMXEPublicKey(this.provider, this.program.programId);
+      return !!key;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -411,10 +407,11 @@ export class BlindLinkClient {
 
       callbacks?.onComputeStart?.();
 
-      // Step 2: Hash registered users with the same algorithm
+      // Step 2: Hash registered users with the same canonical normalizer
       const registeredHashes = new Set<string>();
       for (const user of registeredUsers) {
-        const data = new TextEncoder().encode(user.trim().toLowerCase());
+        const normalized = normalizeContactLocal(user);
+        const data = new TextEncoder().encode(normalized);
         const hashBuffer = await crypto.subtle.digest("SHA-256", data);
         const arr = new Uint8Array(hashBuffer);
         let h = BigInt(0);
@@ -465,9 +462,10 @@ export class BlindLinkClient {
       throw new Error("Session initialization failed");
     }
 
-    // Hash the user's own contact identifier
+    // Hash the user's own contact identifier using canonical normalizer
+    const normalized = normalizeContactLocal(contactIdentifier);
     const encoder = new TextEncoder();
-    const data = encoder.encode(contactIdentifier.trim().toLowerCase());
+    const data = encoder.encode(normalized);
     const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = new Uint8Array(hashBuffer);
 
@@ -537,23 +535,28 @@ export class BlindLinkClient {
     return txSignature;
   }
 
-  // ── Internal Helpers ────────────────────────────────────────────────
-
-  /** Event listener for PSI completion (set up before tx submission). */
-  private awaitPsiEvent(): Promise<any> {
-    return new Promise((resolve) => {
-      const listener = this.program.addEventListener(
-        "psiCompleteEvent",
-        (event: any) => {
-          this.program.removeEventListener(listener as number);
-          resolve(event);
-        }
-      );
-    });
-  }
 }
 
 // ── Utilities ───────────────────────────────────────────────────────────
+
+/**
+ * Canonical contact normalizer — MUST match contact-hash.ts normalizeContact().
+ * Duplicated here because the client service runs in the main thread while
+ * contact-hash.ts is also used by the Web Worker. Both MUST produce identical
+ * output for PSI matching to work.
+ */
+function normalizeContactLocal(contact: string): string {
+  const trimmed = contact.trim();
+  const digitsOnly = trimmed.replace(/[^0-9]/g, "");
+  if (digitsOnly.length >= 7 && digitsOnly.length <= 15) {
+    return digitsOnly;
+  }
+  const withoutLeadingAt = trimmed.replace(/^@/, "");
+  if (withoutLeadingAt.includes("@")) {
+    return withoutLeadingAt.toLowerCase();
+  }
+  return withoutLeadingAt.toLowerCase();
+}
 
 /** Retry helper for MXE public key retrieval (devnet latency). */
 async function getMXEPublicKeyWithRetry(
