@@ -88,8 +88,10 @@ export const Register: React.FC = () => {
 
   useEffect(() => {
     if (!client) {
-      setDemoMode(true);
-      setMxeChecked(true);
+      queueMicrotask(() => {
+        setDemoMode(true);
+        setMxeChecked(true);
+      });
       return;
     }
     client.isMxeAvailable().then((available) => {
@@ -103,7 +105,7 @@ export const Register: React.FC = () => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     if (!identifier.trim()) {
-      setHashPreview("");
+      queueMicrotask(() => setHashPreview(""));
       return;
     }
 
